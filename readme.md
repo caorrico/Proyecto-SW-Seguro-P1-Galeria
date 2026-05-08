@@ -115,6 +115,14 @@ El backend debe responder `422 Unprocessable Entity` con mensaje de contenido no
 
 ### Ejecucion del backend
 
+Antes de ejecutar el backend, levantar PostgreSQL:
+
+```bash
+docker compose up -d db
+```
+
+El Compose crea un contenedor PostgreSQL 16 y la base `secureframe_gallery` usando las variables de `.env`, pero no crea tablas ni inserta datos de aplicacion. La aplicacion tampoco ejecuta `Base.metadata.create_all` al arrancar.
+
 ```bash
 cd backend
 python -m venv .venv
@@ -123,7 +131,15 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-Por defecto se usa SQLite local (`secureframe_gallery.db`) para facilitar pruebas cuando no existe una configuracion PostgreSQL. Para PostgreSQL, definir `DATABASE_URL` en `.env`.
+Variables principales de `backend/.env`:
+
+```env
+DATABASE_URL=postgresql+psycopg2://secureframe_user:secureframe_password@localhost:5432/secureframe_gallery
+SECRET_KEY=change-this-secret-key-in-production
+FRONTEND_ORIGIN=http://localhost:5173
+```
+
+Como no se inicializan tablas automaticamente, el equipo debe crear una migracion Alembic o ejecutar el DDL acordado antes de probar endpoints que escriben en base de datos.
 
 ### Ejecucion del frontend
 
