@@ -58,8 +58,19 @@ export default function Dashboard() {
     }
   };
 
+  const handleDelete = async (albumId: number, imageId: number) => {
+    if (!window.confirm('Are you sure you want to delete this file?')) return;
+    try {
+      await imagesApi.deleteImage(albumId, imageId);
+      if (selectedAlbum) loadImages(selectedAlbum);
+    } catch (err: any) {
+      setMsg(err.response?.data?.detail ?? 'Delete failed');
+    }
+  };
+
   const statusBadge = (s: string) => {
-    const cls = s === 'APPROVED' ? 'badge-green' : s === 'REJECTED' ? 'badge-red' : 'badge-yellow';
+    const status = s.toUpperCase();
+    const cls = status === 'APPROVED' ? 'badge-green' : status === 'REJECTED' ? 'badge-red' : 'badge-yellow';
     return <span className={`badge ${cls}`}>{s}</span>;
   };
 
@@ -106,7 +117,7 @@ export default function Dashboard() {
           {selectedAlbum ? (
             <>
               <h2>{selectedAlbum.title}</h2>
-              {selectedAlbum.status === 'APPROVED' && (
+              {selectedAlbum.status.toUpperCase() === 'APPROVED' && (
                 <div className="upload-area">
                   <label htmlFor="file-upload" className="btn btn-primary">
                     {uploading ? 'Uploading…' : '📤 Upload Image'}
@@ -116,7 +127,7 @@ export default function Dashboard() {
                     onChange={handleUpload} disabled={uploading} style={{ display: 'none' }} />
                 </div>
               )}
-              {selectedAlbum.status === 'PENDING' && (
+              {selectedAlbum.status.toUpperCase() === 'PENDING' && (
                 <p className="notice">⏳ Album pending supervisor approval.</p>
               )}
               <div className="image-grid">
@@ -129,6 +140,14 @@ export default function Dashboard() {
                         {img.status}
                       </span>
                       <span className="image-name">{img.original_filename}</span>
+                      <button 
+                        className="btn btn-red btn-sm" 
+                        onClick={() => handleDelete(img.album_id, img.id)}
+                        style={{ padding: '0.2rem 0.5rem', marginLeft: 'auto' }}
+                        title="Delete file"
+                      >
+                        🗑️
+                      </button>
                     </div>
                   </div>
                 ))}

@@ -16,11 +16,14 @@ class Settings(BaseSettings):
 
     access_token_expire_minutes: int = 120
     frontend_origin: str = "http://localhost:5173"
+    upload_dir: str = "uploads"
 
     minio_url: str
     minio_access_key: str
     minio_secret_key: str
-    minio_bucket_name: str = "secureframe-gallery"
+    minio_bucket_quarantine: str = "uploads-quarantine"
+    minio_bucket_public: str = "gallery-public"
+    minio_bucket_evidence: str = "rejected-evidence"
 
     model_config = SettingsConfigDict(
         env_file=(PROJECT_DIR / ".env", BACKEND_DIR / ".env"),

@@ -1,0 +1,23 @@
+Requirement already satisfied: python-jose in ./backend/.venv_wsl/lib/python3.12/site-packages (3.3.0)
+Collecting python-jose
+  Using cached python_jose-3.5.0-py2.py3-none-any.whl.metadata (5.5 kB)
+Requirement already satisfied: python-multipart in ./backend/.venv_wsl/lib/python3.12/site-packages (0.0.9)
+Collecting python-multipart
+  Downloading python_multipart-0.0.27-py3-none-any.whl.metadata (2.1 kB)
+Requirement already satisfied: ecdsa!=0.15 in ./backend/.venv_wsl/lib/python3.12/site-packages (from python-jose) (0.19.2)
+Requirement already satisfied: rsa!=4.1.1,!=4.4,<5.0,>=4.0 in ./backend/.venv_wsl/lib/python3.12/site-packages (from python-jose) (4.9.1)
+Requirement already satisfied: pyasn1>=0.5.0 in ./backend/.venv_wsl/lib/python3.12/site-packages (from python-jose) (0.6.3)
+Requirement already satisfied: six>=1.9.0 in ./backend/.venv_wsl/lib/python3.12/site-packages (from ecdsa!=0.15->python-jose) (1.17.0)
+Using cached python_jose-3.5.0-py2.py3-none-any.whl (34 kB)
+Downloading python_multipart-0.0.27-py3-none-any.whl (29 kB)
+Installing collected packages: python-multipart, python-jose
+  Attempting uninstall: python-multipart
+    Found existing installation: python-multipart 0.0.9
+    Uninstalling python-multipart-0.0.9:
+      Successfully uninstalled python-multipart-0.0.9
+  Attempting uninstall: python-jose
+    Found existing installation: python-jose 3.3.0
+    Uninstalling python-jose-3.3.0:
+      Successfully uninstalled python-jose-3.3.0
+
+Successfully installed python-jose-3.5.0 python-multipart-0.0.27

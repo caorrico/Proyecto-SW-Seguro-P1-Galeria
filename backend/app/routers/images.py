@@ -15,6 +15,49 @@ from app.services.storage_service import storage_service
 router = APIRouter(prefix="/images", tags=["images"])
 
 
+@router.get("/{filename:path}")
+async def get_image_file(
+    filename: str,
+    db: Session = Depends(get_db)
+):
+    """Sirve el archivo de imagen directamente desde MinIO."""
+    image = db.query(Image).filter(Image.stored_path == filename).first()
+    if not image:
+        # Intentamos buscar por el nombre original si el almacenado falla (fallback)
+        image = db.query(Image).filter(Image.filename == filename).first()
+        
+    if not image:
+        raise HTTPException(status_code=404, detail=f"Imagen {filename} no encontrada en DB.")
+    
+    try:
+        # Determinar el bucket (por seguridad, si es PENDING solo el dueño o supervisor pueden verlo)
+        bucket = "public"
+        if image.status not in ["CLEAN", "APPROVED_MANUAL"]:
+            bucket = "quarantine"
+            # TODO: Añadir validación de sesión aquí si se desea restringir vista de cuarentena
+            
+        # Verificar si el objeto existe en MinIO
+        response = storage_service.client.get_object(
+            storage_service.buckets[bucket],
+            image.stored_path
+        )
+        
+        from fastapi.responses import StreamingResponse
+        # Intentar determinar el tipo de contenido por la extensión
+        content_type = "image/jpeg"
+        if image.filename.lower().endswith(".png"):
+            content_type = "image/png"
+        elif image.filename.lower().endswith(".gif"):
+            content_type = "image/gif"
+        elif image.filename.lower().endswith(".webp"):
+            content_type = "image/webp"
+
+        return StreamingResponse(response, media_type=content_type)
+    except Exception as e:
+        print(f"DEBUG: Error al leer de MinIO: {e}")
+        raise HTTPException(status_code=500, detail=f"Error de almacenamiento: {str(e)}")
+
+
 @router.post("/upload", response_model=ImageResponse, status_code=status.HTTP_201_CREATED)
 async def upload_image(
     album_id: int = Form(...),
@@ -72,9 +115,13 @@ def get_image_url(
     if album.privacy == "private" and album.user_id != current_user.id and current_user.role != "supervisor":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes permiso para ver esta imagen.")
 
-    url = storage_service.get_presigned_url(image.stored_path)
+    bucket = "public" if image.status in ["CLEAN", "APPROVED_MANUAL"] else "quarantine"
+    url = storage_service.get_presigned_url(bucket, image.stored_path)
     if not url:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al generar URL de la imagen.")
     
     return {"url": url}
+
+
+
 

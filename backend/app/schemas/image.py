@@ -1,14 +1,15 @@
 from datetime import datetime
-
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ImageResponse(BaseModel):
     id: int
-    filename: str
+    original_filename: str = Field(validation_alias="filename")
+    stored_filename: str = Field(validation_alias="stored_path")
     album_id: int
     user_id: int
     status: str
+    steg_result: dict | None = None
     created_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)

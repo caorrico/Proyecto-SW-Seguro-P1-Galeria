@@ -86,7 +86,17 @@ export default function Supervisor() {
             <div className="quarantine-grid">
               {quarantine.map(img => (
                 <div key={img.id} className="quarantine-card">
-                  <img src={`${API}/images/${img.stored_filename}`} alt={img.original_filename} />
+                  <div className="preview-container mb-4" style={{ position: 'relative', height: '200px', backgroundColor: '#0f172a', borderRadius: '8px', overflow: 'hidden' }}>
+                    <img 
+                      src={`${API}/images/${img.stored_filename}`} 
+                      alt="Quarantine Preview"
+                      style={{ width: '100%', height: '100%', objectFit: 'contain', filter: 'sepia(0.5) saturate(1.5)' }} 
+                      onError={(e) => (e.currentTarget.src = 'https://placehold.co/400x300/1e293b/64748b?text=No+Preview+Available')}
+                    />
+                    <div style={{ position: 'absolute', top: 0, left: 0, padding: '4px 8px', background: 'red', color: 'white', fontSize: '10px', fontWeight: 'bold' }}>
+                      SUSPICIOUS FILE
+                    </div>
+                  </div>
                   <div className="q-info">
                     <p className="q-filename">{img.original_filename}</p>
                     {img.steg_result && (

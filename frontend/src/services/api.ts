@@ -81,4 +81,7 @@ export const imagesApi = {
 
   rejectQuarantine: (imageId: number) =>
     api.patch<GalleryImage>(`/quarantine/${imageId}/reject`),
+
+  deleteImage: (albumId: number, imageId: number) =>
+    api.delete(`/albums/${albumId}/images/${imageId}`),
 };

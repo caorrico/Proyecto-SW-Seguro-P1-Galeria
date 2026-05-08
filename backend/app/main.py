@@ -13,7 +13,7 @@ from app.middleware.rate_limiter import limiter
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.models import Album, Image, User
 from app.models.user import User as UserModel
-from app.routers import albums, auth, images
+from app.routers import albums, auth, images, quarantine
 from app.services.auth_service import hash_password
 
 logger = logging.getLogger(__name__)
@@ -80,6 +80,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api")
 app.include_router(albums.router, prefix="/api")
 app.include_router(images.router, prefix="/api")
+app.include_router(quarantine.router, prefix="/api")
 
 
 @app.get("/health")

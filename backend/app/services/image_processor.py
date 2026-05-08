@@ -8,9 +8,7 @@ from PIL import Image, ExifTags
 from PIL.ExifTags import TAGS
 import numpy as np
 
-from app.config import get_settings
-
-settings = get_settings()
+from app.config import settings
 
 # MIME magic numbers para validación real (no confiar en extensión)
 _MAGIC_BYTES: dict[bytes, str] = {
@@ -122,6 +120,7 @@ def check_eof_markers(file_bytes: bytes, mime: str) -> bool:
             if idx != -1 and idx + 8 < len(file_bytes):
                 trailing = file_bytes[idx + 8:].strip(b"\x00")
                 return len(trailing) > 4
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).debug(f"EOF check error: {e}")
     return False
