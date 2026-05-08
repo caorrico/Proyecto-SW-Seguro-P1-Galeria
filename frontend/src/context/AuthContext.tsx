@@ -28,7 +28,7 @@ interface AuthContextValue {
   loading: boolean;
   role: Role | 'visitor';
   isAuthenticated: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<AuthUser>;
   logout: () => void;
 }
 
@@ -51,10 +51,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
   }, []);
 
-  const login = async (username: string, password: string) => {
+  const login = async (username: string, password: string): Promise<AuthUser> => {
     await authApi.login(username, password);
     const res = await authApi.me();
     dispatch({ type: 'SET_USER', payload: res.data });
+    return res.data;
   };
 
   const logout = () => {

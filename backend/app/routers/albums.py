@@ -32,11 +32,15 @@ def request_album(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Los supervisores auto-aprueban sus propios álbumes
+    is_supervisor = current_user.role.value == "supervisor"
     album = Album(
         title=payload.title,
         description=payload.description,
-        status=AlbumStatus.pending,
+        status=AlbumStatus.approved if is_supervisor else AlbumStatus.pending,
         owner_id=current_user.id,
+        reviewer_id=current_user.id if is_supervisor else None,
+        reviewed_at=datetime.now(timezone.utc) if is_supervisor else None,
     )
     db.add(album)
     db.commit()

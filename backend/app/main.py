@@ -29,32 +29,60 @@ async def lifespan(app: FastAPI):
     logger.info("Starting SecureFrame Gallery API...")
     init_db()
     os.makedirs(settings.upload_dir, exist_ok=True)
-    _seed_supervisor()
+    _seed_demo_users()
     logger.info("Database initialized and uploads directory ready.")
     yield
     # Shutdown
     logger.info("Shutting down SecureFrame Gallery API.")
 
 
-def _seed_supervisor() -> None:
-    """Crea el usuario supervisor por defecto si no existe."""
+def _seed_demo_users() -> None:
+    """
+    Crea las cuentas de demo al inicio si no existen.
+
+    Credenciales de prueba:
+    ┌─────────────┬──────────────┬──────────────────────┬─────────────┐
+    │ Rol         │ Username     │ Password             │ Email       │
+    ├─────────────┼──────────────┼──────────────────────┼─────────────┤
+    │ supervisor  │ supervisor   │ Sup3rv!s0r#2026      │ supervisor@ │
+    │ user        │ demo_user    │ DemoUs3r!2026        │ demo@       │
+    └─────────────┴──────────────┴──────────────────────┴─────────────┘
+    """
     from app.database import SessionLocal
     from app.services import auth_service
     from app.models.user import UserRole
 
+    _ACCOUNTS = [
+        {
+            "username": "supervisor",
+            "email":    "supervisor@secureframe.local",
+            "password": "Sup3rv!s0r#2026",
+            "role":     UserRole.supervisor,
+        },
+        {
+            "username": "demo_user",
+            "email":    "demo@secureframe.local",
+            "password": "DemoUs3r!2026",
+            "role":     UserRole.user,
+        },
+    ]
+
     db = SessionLocal()
     try:
-        existing = auth_service.get_user_by_username(db, "supervisor")
-        if not existing:
-            user = auth_service.create_user(
-                db,
-                username="supervisor",
-                email="supervisor@secureframe.local",
-                password="Sup3rv!s0r#2026",
-            )
-            user.role = UserRole.supervisor
-            db.commit()
-            logger.info("Default supervisor user created.")
+        for acc in _ACCOUNTS:
+            if not auth_service.get_user_by_username(db, acc["username"]):
+                user = auth_service.create_user(
+                    db,
+                    username=acc["username"],
+                    email=acc["email"],
+                    password=acc["password"],
+                )
+                user.role = acc["role"]
+                db.commit()
+                logger.info(
+                    "Demo account created → username: %s | role: %s",
+                    acc["username"], acc["role"].value,
+                )
     finally:
         db.close()
 

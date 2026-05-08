@@ -10,6 +10,8 @@ function PrivateRoute({ children, role }: { children: React.ReactNode; role?: st
   const { isAuthenticated, loading, user } = useAuth();
   if (loading) return <div className="loading">Loading…</div>;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
+  // Si un supervisor intenta entrar al dashboard de usuario normal, redirigir a su panel
+  if (!role && user?.role === 'supervisor') return <Navigate to="/supervisor" replace />;
   if (role && user?.role !== role) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }

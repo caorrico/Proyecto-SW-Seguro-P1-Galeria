@@ -5,15 +5,60 @@ import { useAuth } from '../context/AuthContext';
 
 export default function Supervisor() {
   const { user, logout } = useAuth();
-  const [tab, setTab] = useState<'albums' | 'quarantine'>('albums');
-  const [pendingAlbums, setPendingAlbums] = useState<Album[]>([]);
-  const [quarantine, setQuarantine] = useState<GalleryImage[]>([]);
+  const [tab, setTab] = useState<'myalbums' | 'albums' | 'quarantine'>('myalbums');
   const [msg, setMsg] = useState('');
 
-  const loadPending = () => albumsApi.pendingAlbums().then(r => setPendingAlbums(r.data)).catch(() => {});
-  const loadQuarantine = () => imagesApi.quarantine().then(r => setQuarantine(r.data)).catch(() => {});
+  // ── Pestaña: Mis álbumes (supervisor como usuario) ──────────────────────
+  const [myAlbums, setMyAlbums] = useState<Album[]>([]);
+  const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
+  const [albumImages, setAlbumImages] = useState<GalleryImage[]>([]);
+  const [newTitle, setNewTitle] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+  const [uploading, setUploading] = useState(false);
 
-  useEffect(() => { loadPending(); loadQuarantine(); }, []);
+  const loadMyAlbums = () => albumsApi.myAlbums().then(r => setMyAlbums(r.data)).catch(() => {});
+  const loadAlbumImages = (album: Album) =>
+    imagesApi.albumImages(album.id).then(r => setAlbumImages(r.data)).catch(() => setAlbumImages([]));
+
+  const selectAlbum = (album: Album) => {
+    setSelectedAlbum(album);
+    loadAlbumImages(album);
+  };
+
+  const createAlbum = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await albumsApi.requestAlbum({ title: newTitle, description: newDesc });
+      setNewTitle(''); setNewDesc('');
+      setMsg('✅ Album created and auto-approved.');
+      loadMyAlbums();
+    } catch (err: any) {
+      setMsg(err.response?.data?.detail ?? 'Error creating album');
+    }
+  };
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedAlbum || !e.target.files?.[0]) return;
+    setUploading(true);
+    setMsg('');
+    try {
+      const result = await imagesApi.upload(selectedAlbum.id, e.target.files[0]);
+      const steg = result.data.steg_result;
+      setMsg(steg?.is_suspicious
+        ? '⚠️ Image flagged for steganography — sent to quarantine.'
+        : '✅ Image uploaded successfully.');
+      loadAlbumImages(selectedAlbum);
+    } catch (err: any) {
+      setMsg(err.response?.data?.detail ?? 'Upload failed');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  // ── Pestaña: Álbumes pendientes ─────────────────────────────────────────
+  const [pendingAlbums, setPendingAlbums] = useState<Album[]>([]);
+  const loadPending = () => albumsApi.pendingAlbums().then(r => setPendingAlbums(r.data)).catch(() => {});
 
   const reviewAlbum = async (id: number, action: 'approve' | 'reject') => {
     try {
@@ -22,6 +67,10 @@ export default function Supervisor() {
       loadPending();
     } catch { setMsg('Action failed.'); }
   };
+
+  // ── Pestaña: Cuarentena ─────────────────────────────────────────────────
+  const [quarantine, setQuarantine] = useState<GalleryImage[]>([]);
+  const loadQuarantine = () => imagesApi.quarantine().then(r => setQuarantine(r.data)).catch(() => {});
 
   const reviewImage = async (id: number, action: 'approve' | 'reject') => {
     try {
@@ -33,6 +82,8 @@ export default function Supervisor() {
   };
 
   const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api';
+
+  useEffect(() => { loadMyAlbums(); loadPending(); loadQuarantine(); }, []);
 
   return (
     <div className="dashboard">
@@ -47,6 +98,9 @@ export default function Supervisor() {
       {msg && <p className="form-msg">{msg}</p>}
 
       <div className="tab-bar">
+        <button className={`tab ${tab === 'myalbums' ? 'active' : ''}`} onClick={() => setTab('myalbums')}>
+          🖼️ My Gallery
+        </button>
         <button className={`tab ${tab === 'albums' ? 'active' : ''}`} onClick={() => setTab('albums')}>
           📋 Pending Albums ({pendingAlbums.length})
         </button>
@@ -55,6 +109,70 @@ export default function Supervisor() {
         </button>
       </div>
 
+      {/* ── Mi Galería ──────────────────────────────────────────────────── */}
+      {tab === 'myalbums' && (
+        <div className="dash-grid">
+          <section className="panel">
+            <h2>My Albums</h2>
+            <form onSubmit={createAlbum} className="form-inline">
+              <input placeholder="Album title" value={newTitle}
+                onChange={e => setNewTitle(e.target.value)} required />
+              <input placeholder="Description (optional)" value={newDesc}
+                onChange={e => setNewDesc(e.target.value)} />
+              <button type="submit" className="btn btn-primary btn-sm">Create Album</button>
+            </form>
+            <ul className="album-list">
+              {myAlbums.map(a => (
+                <li key={a.id}
+                  className={`album-item ${selectedAlbum?.id === a.id ? 'active' : ''}`}
+                  onClick={() => selectAlbum(a)}>
+                  <span>{a.title}</span>
+                  <span className={`badge ${a.status === 'APPROVED' ? 'badge-green' : a.status === 'REJECTED' ? 'badge-red' : 'badge-yellow'}`}>
+                    {a.status}
+                  </span>
+                </li>
+              ))}
+              {myAlbums.length === 0 && <p className="empty">No albums yet. Create one above.</p>}
+            </ul>
+          </section>
+
+          <section className="panel">
+            {selectedAlbum ? (
+              <>
+                <h2>{selectedAlbum.title}</h2>
+                {selectedAlbum.status === 'APPROVED' && (
+                  <div className="upload-area">
+                    <label htmlFor="sup-file-upload" className="btn btn-primary">
+                      {uploading ? 'Uploading…' : '📤 Upload Image'}
+                    </label>
+                    <input id="sup-file-upload" type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      onChange={handleUpload} disabled={uploading} style={{ display: 'none' }} />
+                  </div>
+                )}
+                <div className="image-grid">
+                  {albumImages.map(img => (
+                    <div key={img.id} className="image-card">
+                      <img src={imagesApi.imageUrl(img.stored_filename)} alt={img.original_filename} loading="lazy" />
+                      <div className="image-info">
+                        <span className={`badge ${img.status === 'CLEAN' || img.status === 'APPROVED_MANUAL' ? 'badge-green' : 'badge-yellow'}`}>
+                          {img.status}
+                        </span>
+                        <span className="image-name">{img.original_filename}</span>
+                      </div>
+                    </div>
+                  ))}
+                  {albumImages.length === 0 && <p className="empty">No images yet.</p>}
+                </div>
+              </>
+            ) : (
+              <p className="empty">Select an album to view or upload images.</p>
+            )}
+          </section>
+        </div>
+      )}
+
+      {/* ── Álbumes pendientes ──────────────────────────────────────────── */}
       {tab === 'albums' && (
         <section className="panel">
           <h2>Albums Awaiting Approval</h2>
@@ -79,6 +197,7 @@ export default function Supervisor() {
         </section>
       )}
 
+      {/* ── Cuarentena ─────────────────────────────────────────────────── */}
       {tab === 'quarantine' && (
         <section className="panel">
           <h2>Quarantined Images</h2>
