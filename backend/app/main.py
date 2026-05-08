@@ -10,8 +10,6 @@ from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.models import Album, Image, User
 from app.routers import albums, auth, images
 
-Base.metadata.create_all(bind=engine)
-
 app = FastAPI(title=settings.app_name)
 
 app.state.limiter = limiter
