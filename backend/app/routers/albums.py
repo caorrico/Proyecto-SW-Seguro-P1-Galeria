@@ -111,6 +111,20 @@ def review_album(
     
     db.commit()
     db.refresh(album)
+
+    # --- SEGURIDAD FÍSICA (MINIO) ---
+    # Al aprobar/rechazar el álbum, procesamos físicamente todas sus imágenes
+    for img in album.images:
+        if action == "approve":
+            # De cuarentena a público
+            if storage_service.move_object("quarantine", "public", img.stored_path):
+                img.status = "CLEAN"
+        else:
+            # De cuarentena a evidencia
+            if storage_service.move_object("quarantine", "evidence", img.stored_path):
+                img.status = "REJECTED"
+    
+    db.commit()
     return album
 
 
