@@ -36,7 +36,7 @@ def _init_db(max_retries: int = 5, delay: int = 3):
                         username="admin",
                         email="admin@secureframe.com",
                         hashed_password=hash_password("admin123"),
-                        role="admin",
+                        role="supervisor",
                         status="ACTIVE",
                         token_version=1,
                         created_at=datetime.utcnow(),

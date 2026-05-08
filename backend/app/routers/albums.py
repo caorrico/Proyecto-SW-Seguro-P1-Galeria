@@ -7,7 +7,7 @@ from app.database import get_db
 from app.models.album import Album
 from app.models.user import User
 from app.schemas.album import AlbumCreate, AlbumRejectRequest, AlbumResponse, AlbumStatus
-from app.services.auth_service import get_current_user, require_supervisor_or_admin
+from app.services.auth_service import get_current_user, require_supervisor
 
 router = APIRouter(prefix="/albums", tags=["albums"])
 
@@ -60,7 +60,7 @@ def list_public_albums(db: Session = Depends(get_db)):
 @router.get("/supervisor", response_model=list[AlbumResponse])
 def list_albums_for_review(
     status_filter: AlbumStatus | None = Query(default=None, alias="status"),
-    _: User = Depends(require_supervisor_or_admin),
+    _: User = Depends(require_supervisor),
     db: Session = Depends(get_db),
 ):
     query = db.query(Album)
@@ -72,7 +72,7 @@ def list_albums_for_review(
 @router.patch("/{album_id}/approve", response_model=AlbumResponse)
 def approve_album(
     album_id: int,
-    reviewer: User = Depends(require_supervisor_or_admin),
+    reviewer: User = Depends(require_supervisor),
     db: Session = Depends(get_db),
 ):
     album = db.get(Album, album_id)
@@ -92,7 +92,7 @@ def approve_album(
 def reject_album(
     album_id: int,
     payload: AlbumRejectRequest,
-    reviewer: User = Depends(require_supervisor_or_admin),
+    reviewer: User = Depends(require_supervisor),
     db: Session = Depends(get_db),
 ):
     album = db.get(Album, album_id)

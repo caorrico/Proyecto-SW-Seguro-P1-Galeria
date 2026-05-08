@@ -77,7 +77,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     return user
 
 
-def require_supervisor_or_admin(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role not in {"supervisor", "admin"}:
+def require_supervisor(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role != "supervisor":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permisos insuficientes.")
     return current_user

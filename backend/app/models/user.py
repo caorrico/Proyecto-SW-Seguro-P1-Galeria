@@ -1,10 +1,17 @@
+import enum
 from datetime import datetime
 
 # pyrefly: ignore [missing-import]
-from sqlalchemy import DateTime, String
+from sqlalchemy import DateTime, String, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+
+class UserRole(str, enum.Enum):
+    visitor    = "visitor"
+    user       = "user"
+    supervisor = "supervisor"
 
 
 class User(Base):
@@ -14,7 +21,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
-    role: Mapped[str] = mapped_column(String(30), default="user", nullable=False)
+    role: Mapped[UserRole] = mapped_column(SAEnum(UserRole), default=UserRole.user, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Security fields

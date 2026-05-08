@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { albumsApi, imagesApi } from '../services/api';
-import { imagesApi as imgApi } from '../services/api';
 import type { Album, GalleryImage } from '../types';
 import { useAuth } from '../context/AuthContext';
 
@@ -68,6 +68,11 @@ export default function Dashboard() {
       <header className="dash-header">
         <h1>🖼️ My Gallery</h1>
         <div className="dash-user">
+          {user?.role === 'supervisor' && (
+            <Link to="/supervisor" className="btn btn-warning btn-sm" style={{ marginRight: '1rem' }}>
+              🔍 Supervisor Panel
+            </Link>
+          )}
           <span>👤 {user?.username}</span>
           <button className="btn btn-sm" onClick={logout}>Sign Out</button>
         </div>

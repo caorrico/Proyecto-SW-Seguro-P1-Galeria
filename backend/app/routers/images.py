@@ -69,7 +69,7 @@ def get_image_url(
     
     # Optional: check if user has access to the album
     album = db.get(Album, image.album_id)
-    if album.privacy == "private" and album.user_id != current_user.id and current_user.role not in ["admin", "supervisor"]:
+    if album.privacy == "private" and album.user_id != current_user.id and current_user.role != "supervisor":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes permiso para ver esta imagen.")
 
     url = storage_service.get_presigned_url(image.stored_path)

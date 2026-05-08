@@ -10,7 +10,12 @@ function PrivateRoute({ children, role }: { children: React.ReactNode; role?: st
   const { isAuthenticated, loading, user } = useAuth();
   if (loading) return <div className="loading">Loading…</div>;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (role && user?.role !== role) return <Navigate to="/dashboard" replace />;
+
+  if (role) {
+    const hasAccess = user?.role === role;
+    if (!hasAccess) return <Navigate to="/dashboard" replace />;
+  }
+
   return <>{children}</>;
 }
 
