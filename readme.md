@@ -121,7 +121,7 @@ Antes de ejecutar el backend, levantar PostgreSQL:
 docker compose up -d db
 ```
 
-El Compose crea un contenedor PostgreSQL 16 y la base `secureframe_gallery` usando las variables de `.env`, pero no crea tablas ni inserta datos de aplicacion. La aplicacion tampoco ejecuta `Base.metadata.create_all` al arrancar.
+El Compose crea un contenedor PostgreSQL 16 y la base `secureframe_gallery` usando las variables de `.env`. En una base nueva ejecuta `database/init/01_secureframe_schema.sql`, creando las tablas principales del sistema y un admin de prueba. La aplicacion no ejecuta `Base.metadata.create_all` al arrancar.
 
 ```bash
 cd backend
@@ -139,7 +139,20 @@ SECRET_KEY=change-this-secret-key-in-production
 FRONTEND_ORIGIN=http://localhost:5173
 ```
 
-Como no se inicializan tablas automaticamente, el equipo debe crear una migracion Alembic o ejecutar el DDL acordado antes de probar endpoints que escriben en base de datos.
+Credencial de prueba generada por el init SQL:
+
+```text
+username: admin_demo
+password: Admin12345
+role: admin
+```
+
+Si el volumen ya existia, recrear la base para que el init se ejecute:
+
+```bash
+docker compose down -v
+docker compose up -d db
+```
 
 ### Ejecucion del frontend
 
