@@ -14,11 +14,8 @@ from app.database import init_db
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.middleware.rate_limiter import limiter
 from app.routers import auth as auth_router
-
-# ── Placeholder imports para P2 (se agregarán via PR) ───────────────────
-# from app.routers import albums as albums_router
-# from app.routers import images as images_router
-# from app.routers import quarantine as quarantine_router
+from app.routers import albums as albums_router
+from app.routers import images as images_router
 
 settings = get_settings()
 logging.basicConfig(level=logging.INFO)
@@ -105,11 +102,8 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # ── Routers ───────────────────────────────────────────────────────────────
 app.include_router(auth_router.router, prefix="/api")
-
-# P2 agregará estos via PR:
-# app.include_router(albums_router.router, prefix="/api")
-# app.include_router(images_router.router, prefix="/api")
-# app.include_router(quarantine_router.router, prefix="/api")
+app.include_router(albums_router.router, prefix="/api")
+app.include_router(images_router.router, prefix="/api")
 
 
 # ── Health check ──────────────────────────────────────────────────────────
