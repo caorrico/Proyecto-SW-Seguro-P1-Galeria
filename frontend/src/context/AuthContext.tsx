@@ -1,85 +1,83 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { fetchMe, login as loginRequest, logoutRequest, setAccessToken, api } from "../services/api";
-import type { Role, User } from "../types";
+import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import type { AuthUser, Role } from '../types';
+import { authApi } from '../services/api';
 
+// ── State ─────────────────────────────────────────────────────────────────
+interface AuthState {
+  user: AuthUser | null;
+  loading: boolean;
+}
+
+type AuthAction =
+  | { type: 'SET_USER'; payload: AuthUser }
+  | { type: 'CLEAR_USER' }
+  | { type: 'SET_LOADING'; payload: boolean };
+
+function authReducer(state: AuthState, action: AuthAction): AuthState {
+  switch (action.type) {
+    case 'SET_USER':   return { ...state, user: action.payload, loading: false };
+    case 'CLEAR_USER': return { user: null, loading: false };
+    case 'SET_LOADING':return { ...state, loading: action.payload };
+    default:           return state;
+  }
+}
+
+// ── Context ───────────────────────────────────────────────────────────────
 interface AuthContextValue {
-  user: User | null;
-  token: string | null;
+  user: AuthUser | null;
+  loading: boolean;
+  role: Role | 'visitor';
   isAuthenticated: boolean;
-  isReviewer: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isInitializing, setIsInitializing] = useState(true);
+// ── Provider ──────────────────────────────────────────────────────────────
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [state, dispatch] = useReducer(authReducer, { user: null, loading: true });
 
+  // Restaurar sesión al cargar
   useEffect(() => {
-    // Attempt silent refresh on mount
-    const initAuth = async () => {
-      try {
-        const { data } = await api.post("/auth/refresh");
-        setAccessToken(data.access_token);
-        setToken(data.access_token);
-        const userData = await fetchMe();
-        setUser(userData);
-      } catch (err) {
-        // No valid session
-        setAccessToken(null);
-        setToken(null);
-        setUser(null);
-      } finally {
-        setIsInitializing(false);
-      }
-    };
-    initAuth();
+    const token = localStorage.getItem('access_token');
+    if (!token) { dispatch({ type: 'SET_LOADING', payload: false }); return; }
+
+    authApi.me()
+      .then((res) => dispatch({ type: 'SET_USER', payload: res.data }))
+      .catch(() => {
+        localStorage.removeItem('access_token');
+        dispatch({ type: 'CLEAR_USER' });
+      });
   }, []);
 
-  // Update setAccessToken if token changes via login
-  useEffect(() => {
-    setAccessToken(token);
-  }, [token]);
+  const login = async (username: string, password: string) => {
+    await authApi.login(username, password);
+    const res = await authApi.me();
+    dispatch({ type: 'SET_USER', payload: res.data });
+  };
 
-  const value = useMemo<AuthContextValue>(
-    () => ({
-      user,
-      token,
-      isAuthenticated: Boolean(token && user),
-      isReviewer: user ? ["supervisor", "admin"].includes(user.role as Role) : false,
-      login: async (username: string, password: string) => {
-        const response = await loginRequest(username, password);
-        setToken(response.access_token);
-        setUser(response.user);
-      },
-      logout: async () => {
-        try {
-          if (token) await logoutRequest();
-        } catch {
-          // ignore network errors on logout
-        } finally {
-          setToken(null);
-          setUser(null);
-        }
-      },
-    }),
-    [token, user],
-  );
+  const logout = () => {
+    localStorage.removeItem('access_token');
+    dispatch({ type: 'CLEAR_USER' });
+    window.location.href = '/login';
+  };
 
-  if (isInitializing) {
-    return <div>Cargando sesión...</div>; // Opcional: reemplazar con un spinner bonito
-  }
+  const value: AuthContextValue = {
+    user: state.user,
+    loading: state.loading,
+    role: state.user?.role ?? 'visitor',
+    isAuthenticated: !!state.user,
+    login,
+    logout,
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth debe usarse dentro de AuthProvider");
-  }
-  return context;
+// ── Hook ──────────────────────────────────────────────────────────────────
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used inside <AuthProvider>');
+  return ctx;
 }

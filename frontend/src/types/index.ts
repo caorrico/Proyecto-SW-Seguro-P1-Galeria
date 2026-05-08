@@ -1,37 +1,57 @@
-export type Role = "user" | "supervisor" | "admin";
+// ── Roles ────────────────────────────────────────────────────────────────
+export type Role = 'visitor' | 'user' | 'supervisor';
 
-export interface User {
+// ── Auth ─────────────────────────────────────────────────────────────────
+export interface AuthUser {
   id: number;
   username: string;
   email: string;
   role: Role;
+  is_active: boolean;
 }
 
-export interface AuthToken {
+export interface TokenResponse {
   access_token: string;
-  token_type: "bearer";
-  user: User;
+  token_type: string;
 }
 
-export type AlbumStatus = "pending" | "approved" | "rejected";
-export type AlbumPrivacy = "public" | "private";
+// ── Albums ────────────────────────────────────────────────────────────────
+export type AlbumStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface Album {
   id: number;
   title: string;
-  description: string;
-  privacy: AlbumPrivacy;
+  description: string | null;
   status: AlbumStatus;
-  user_id: number;
+  owner_id: number;
   created_at: string;
-  updated_at: string;
-  reviewed_by?: number | null;
-  reviewed_at?: string | null;
-  rejection_reason?: string | null;
+  reviewed_at: string | null;
 }
 
-export interface AlbumCreatePayload {
-  title: string;
-  description: string;
-  privacy: AlbumPrivacy;
+// ── Images ─────────────────────────────────────────────────────────────────
+export type ImageStatus = 'CLEAN' | 'QUARANTINED' | 'APPROVED_MANUAL' | 'REJECTED';
+
+export interface StegAnalysis {
+  result: 'CLEAN' | 'SUSPICIOUS' | 'ERROR';
+  is_suspicious: boolean;
+  dimensions?: string;
+  lsb_ratio?: number;
+  lsb_suspicious?: boolean;
+  histogram_suspicious?: boolean;
+  entropy_suspicious?: boolean;
+  diagnosis?: string;
+}
+
+export interface GalleryImage {
+  id: number;
+  original_filename: string;
+  stored_filename: string;
+  mime_type: string;
+  file_size: number;
+  status: ImageStatus;
+  steg_result: StegAnalysis | null;
+  album_id: number;
+  owner_id: number;
+  created_at: string;
+  reviewed_at?: string | null;
 }

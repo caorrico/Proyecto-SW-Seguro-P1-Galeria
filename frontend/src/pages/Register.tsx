@@ -1,55 +1,60 @@
-import { FormEvent, useState } from "react";
-import { UserPlus } from "lucide-react";
-import { register } from "../services/api";
-
-const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._\-+])[A-Za-z\d@$!%*?&._\-+]{8,}$/;
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { authApi } from '../services/api';
 
 export default function Register() {
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
+  const navigate = useNavigate();
+  const [form, setForm] = useState({ username: '', email: '', password: '' });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const isPasswordValid = passwordRegex.test(password);
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm(f => ({ ...f, [k]: e.target.value }));
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    setMessage("");
-
-    if (!isPasswordValid) {
-      setMessage("La contraseña no cumple con las políticas de seguridad.");
-      return;
-    }
-
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
     try {
-      await register(username, email, password);
-      setMessage("Usuario registrado. Ya puedes iniciar sesion.");
-      setUsername("");
-      setEmail("");
-      setPassword("");
-    } catch {
-      setMessage("No se pudo registrar el usuario. Comprueba tus datos.");
+      await authApi.register(form);
+      navigate('/login?registered=1');
+    } catch (err: any) {
+      setError(err.response?.data?.detail ?? 'Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
   return (
-    <section className="panel">
-      <h2>Registro</h2>
-      <form onSubmit={handleSubmit} className="stack">
-        <label>Usuario<input value={username} onChange={(event) => setUsername(event.target.value)} required minLength={3} /></label>
-        <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
-        <label>
-          Contraseña
-          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
-        </label>
-        <div style={{ fontSize: "0.85rem", color: isPasswordValid ? "green" : "gray" }}>
-          Requisitos de contraseña: al menos 8 caracteres, 1 mayúscula, 1 minúscula, 1 número y 1 carácter especial.
-        </div>
-        <button type="submit" disabled={!isPasswordValid || !username || !email}>
-          <UserPlus size={16} /> Crear cuenta
-        </button>
-        {message && <p>{message}</p>}
-      </form>
-    </section>
+    <div className="auth-page">
+      <div className="auth-card">
+        <div className="auth-logo">🛡️</div>
+        <h1>Create Account</h1>
+        <p className="auth-subtitle">Join SecureFrame Gallery</p>
+        <form onSubmit={handleSubmit} className="auth-form">
+          <div className="form-group">
+            <label htmlFor="reg-username">Username</label>
+            <input id="reg-username" type="text" value={form.username}
+              onChange={set('username')} required minLength={3} maxLength={50} />
+          </div>
+          <div className="form-group">
+            <label htmlFor="reg-email">Email</label>
+            <input id="reg-email" type="email" value={form.email}
+              onChange={set('email')} required />
+          </div>
+          <div className="form-group">
+            <label htmlFor="reg-password">Password</label>
+            <input id="reg-password" type="password" value={form.password}
+              onChange={set('password')} required minLength={8}
+              placeholder="Min 8 chars, uppercase, number, symbol" />
+          </div>
+          {error && <p className="form-error">{error}</p>}
+          <button type="submit" className="btn btn-primary" disabled={loading}>
+            {loading ? 'Creating account…' : 'Create Account'}
+          </button>
+        </form>
+        <p className="auth-link">Already have an account? <Link to="/login">Sign In</Link></p>
+      </div>
+    </div>
   );
 }

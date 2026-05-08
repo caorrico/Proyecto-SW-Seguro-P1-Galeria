@@ -1,32 +1,53 @@
-import { FormEvent, useState } from "react";
-import { LogIn } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
   const { login } = useAuth();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
+  const navigate = useNavigate();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    setMessage("");
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
     try {
       await login(username, password);
+      navigate('/dashboard');
     } catch {
-      setMessage("Credenciales invalidas o servidor no disponible.");
+      setError('Invalid username or password');
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
   return (
-    <section className="panel">
-      <h2>Ingreso</h2>
-      <form onSubmit={handleSubmit} className="stack">
-        <label>Usuario<input value={username} onChange={(event) => setUsername(event.target.value)} /></label>
-        <label>Contrasena<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
-        <button type="submit"><LogIn size={16} /> Iniciar sesion</button>
-        {message && <p className="error">{message}</p>}
-      </form>
-    </section>
+    <div className="auth-page">
+      <div className="auth-card">
+        <div className="auth-logo">🛡️</div>
+        <h1>SecureFrame Gallery</h1>
+        <p className="auth-subtitle">Sign in to your account</p>
+        <form onSubmit={handleSubmit} className="auth-form">
+          <div className="form-group">
+            <label htmlFor="username">Username or Email</label>
+            <input id="username" type="text" value={username}
+              onChange={e => setUsername(e.target.value)} required autoComplete="username" />
+          </div>
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <input id="password" type="password" value={password}
+              onChange={e => setPassword(e.target.value)} required autoComplete="current-password" />
+          </div>
+          {error && <p className="form-error">{error}</p>}
+          <button type="submit" className="btn btn-primary" disabled={loading}>
+            {loading ? 'Signing in…' : 'Sign In'}
+          </button>
+        </form>
+        <p className="auth-link">Don't have an account? <Link to="/register">Register</Link></p>
+      </div>
+    </div>
   );
 }

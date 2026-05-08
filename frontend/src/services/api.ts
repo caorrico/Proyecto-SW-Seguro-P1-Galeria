@@ -1,102 +1,84 @@
-import axios from "axios";
-import type { Album, AlbumCreatePayload, AlbumStatus, AuthToken, User } from "../types";
+import axios from 'axios';
+import type { AuthUser, TokenResponse, Album, GalleryImage } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api';
 
-export const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: { "Content-Type": "application/json" },
-  withCredentials: true,
-});
+const api = axios.create({ baseURL: BASE_URL });
 
-let currentAccessToken: string | null = null;
-
-export const setAccessToken = (token: string | null) => {
-  currentAccessToken = token;
-};
-
+// ── JWT interceptor ───────────────────────────────────────────────────────
 api.interceptors.request.use((config) => {
-  if (currentAccessToken) {
-    config.headers.Authorization = `Bearer ${currentAccessToken}`;
-  }
+  const token = localStorage.getItem('access_token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
 api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-    if (
-      error.response?.status === 401 &&
-      !originalRequest._retry &&
-      originalRequest.url &&
-      !originalRequest.url.includes("/auth/login") &&
-      !originalRequest.url.includes("/auth/refresh")
-    ) {
-      originalRequest._retry = true;
-      try {
-        const { data } = await axios.post<AuthToken>(
-          `${API_BASE_URL}/auth/refresh`,
-          {},
-          { withCredentials: true }
-        );
-        setAccessToken(data.access_token);
-        originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
-        return api(originalRequest);
-      } catch (refreshError) {
-        setAccessToken(null);
-        return Promise.reject(refreshError);
-      }
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401) {
+      localStorage.removeItem('access_token');
+      window.location.href = '/login';
     }
-    return Promise.reject(error);
-  }
+    return Promise.reject(err);
+  },
 );
 
-export async function login(username: string, password: string): Promise<AuthToken> {
-  const { data } = await api.post<AuthToken>("/auth/login", { username, password });
-  return data;
-}
+// ── Auth ──────────────────────────────────────────────────────────────────
+export const authApi = {
+  register: (data: { username: string; email: string; password: string }) =>
+    api.post<AuthUser>('/auth/register', data),
 
-export async function logoutRequest(): Promise<void> {
-  await api.post("/auth/logout");
-}
+  login: async (username: string, password: string): Promise<string> => {
+    const res = await api.post<TokenResponse>('/auth/login', { username, password });
+    const token = res.data.access_token;
+    localStorage.setItem('access_token', token);
+    return token;
+  },
 
-export async function register(username: string, email: string, password: string): Promise<User> {
-  const { data } = await api.post<User>("/auth/register", { username, email, password });
-  return data;
-}
+  me: () => api.get<AuthUser>('/auth/me'),
 
-export async function fetchMe(): Promise<User> {
-  const { data } = await api.get<User>("/auth/me");
-  return data;
-}
+  logout: () => {
+    localStorage.removeItem('access_token');
+    window.location.href = '/login';
+  },
+};
 
-export async function requestAlbum(payload: AlbumCreatePayload): Promise<Album> {
-  const { data } = await api.post<Album>("/albums/request", payload);
-  return data;
-}
+// ── Albums ────────────────────────────────────────────────────────────────
+export const albumsApi = {
+  requestAlbum: (data: { title: string; description?: string }) =>
+    api.post<Album>('/albums/request', data),
 
-export async function fetchMyAlbums(status?: AlbumStatus): Promise<Album[]> {
-  const { data } = await api.get<Album[]>("/albums/my", { params: { status } });
-  return data;
-}
+  myAlbums: () => api.get<Album[]>('/albums/my'),
 
-export async function fetchPublicAlbums(): Promise<Album[]> {
-  const { data } = await api.get<Album[]>("/albums/public");
-  return data;
-}
+  publicAlbums: () => api.get<Album[]>('/albums/public'),
 
-export async function fetchSupervisorAlbums(status?: AlbumStatus): Promise<Album[]> {
-  const { data } = await api.get<Album[]>("/albums/supervisor", { params: { status } });
-  return data;
-}
+  pendingAlbums: () => api.get<Album[]>('/albums/pending'),
 
-export async function approveAlbum(albumId: number): Promise<Album> {
-  const { data } = await api.patch<Album>(`/albums/${albumId}/approve`);
-  return data;
-}
+  reviewAlbum: (albumId: number, action: 'approve' | 'reject') =>
+    api.patch<Album>(`/albums/${albumId}/review`, { action }),
+};
 
-export async function rejectAlbum(albumId: number, rejection_reason?: string): Promise<Album> {
-  const { data } = await api.patch<Album>(`/albums/${albumId}/reject`, { rejection_reason });
-  return data;
-}
+// ── Images ────────────────────────────────────────────────────────────────
+export const imagesApi = {
+  upload: (albumId: number, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return api.post<GalleryImage>(`/albums/${albumId}/images`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+
+  albumImages: (albumId: number) =>
+    api.get<GalleryImage[]>(`/albums/${albumId}/images`),
+
+  imageUrl: (storedFilename: string) =>
+    `${BASE_URL}/images/${storedFilename}`,
+
+  quarantine: () => api.get<GalleryImage[]>('/quarantine'),
+
+  approveQuarantine: (imageId: number) =>
+    api.patch<GalleryImage>(`/quarantine/${imageId}/approve`),
+
+  rejectQuarantine: (imageId: number) =>
+    api.patch<GalleryImage>(`/quarantine/${imageId}/reject`),
+};
