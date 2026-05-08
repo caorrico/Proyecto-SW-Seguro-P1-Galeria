@@ -1,5 +1,6 @@
 from datetime import datetime
 
+# pyrefly: ignore [missing-import]
 from sqlalchemy import DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
