@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { fetchMe, login as loginRequest } from "../services/api";
+import { fetchMe, login as loginRequest, logoutRequest } from "../services/api";
 import type { Role, User } from "../types";
 
 interface AuthContextValue {
@@ -42,10 +42,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setToken(response.access_token);
         setUser(response.user);
       },
-      logout: () => {
-        localStorage.removeItem("secureframe_token");
-        setToken(null);
-        setUser(null);
+      logout: async () => {
+        try {
+          if (token) await logoutRequest();
+        } catch {
+          // ignore network errors on logout
+        } finally {
+          localStorage.removeItem("secureframe_token");
+          setToken(null);
+          setUser(null);
+        }
       },
     }),
     [token, user],

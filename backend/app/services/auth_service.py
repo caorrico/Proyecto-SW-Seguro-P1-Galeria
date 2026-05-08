@@ -1,11 +1,9 @@
-import hashlib
-import hmac
-import os
 from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
+from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -13,24 +11,21 @@ from app.database import get_db
 from app.models.user import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
+# Anti-enumeration setup: dummy hash for response timing equivalence
+dummy_hash = pwd_context.hash("dummy_password_for_timing")
+# Token blocklist (for demonstration purposes, in-memory)
+# In production, use Redis or DB with TTL.
+token_blocklist = set()
 
 def hash_password(password: str) -> str:
-    salt = os.urandom(16)
-    derived = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 120_000)
-    return f"pbkdf2_sha256$120000${salt.hex()}${derived.hex()}"
-
+    return pwd_context.hash(password)
 
 def verify_password(password: str, stored_hash: str) -> bool:
     try:
-        algorithm, iterations, salt_hex, hash_hex = stored_hash.split("$")
-        if algorithm != "pbkdf2_sha256":
-            return False
-        derived = hashlib.pbkdf2_hmac(
-            "sha256", password.encode("utf-8"), bytes.fromhex(salt_hex), int(iterations)
-        )
-        return hmac.compare_digest(derived.hex(), hash_hex)
-    except ValueError:
+        return pwd_context.verify(password, stored_hash)
+    except Exception:
         return False
 
 
@@ -47,6 +42,9 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         detail="Token invalido o expirado.",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    if token in token_blocklist:
+        raise credentials_exception
+
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         user_id = payload.get("sub")

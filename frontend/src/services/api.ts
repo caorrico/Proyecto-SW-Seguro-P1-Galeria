@@ -21,6 +21,10 @@ export async function login(username: string, password: string): Promise<AuthTok
   return data;
 }
 
+export async function logoutRequest(): Promise<void> {
+  await api.post("/auth/logout");
+}
+
 export async function register(username: string, email: string, password: string): Promise<User> {
   const { data } = await api.post<User>("/auth/register", { username, email, password });
   return data;
