@@ -24,4 +24,4 @@ class User(Base):
     locked_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     albums = relationship("Album", back_populates="owner", foreign_keys="Album.user_id")
-    reviewed_albums = relationship("Album", foreign_keys="Album.reviewed_by")
+    reviewed_albums = relationship("Album", foreign_keys="Album.reviewed_by", overlaps="reviewer")
