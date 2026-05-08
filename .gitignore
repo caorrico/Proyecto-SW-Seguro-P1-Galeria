@@ -8,6 +8,7 @@ backend/*.pyc
 backend/*.pyo
 backend/.venv/
 backend/venv/
+backend/.venv_wsl/
 backend/uploads/*
 !backend/uploads/.gitkeep
 backend/*.egg-info/

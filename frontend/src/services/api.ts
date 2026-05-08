@@ -6,15 +6,51 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000
 export const api = axios.create({
   baseURL: API_BASE_URL,
   headers: { "Content-Type": "application/json" },
+  withCredentials: true,
 });
 
+let currentAccessToken: string | null = null;
+
+export const setAccessToken = (token: string | null) => {
+  currentAccessToken = token;
+};
+
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("secureframe_token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (currentAccessToken) {
+    config.headers.Authorization = `Bearer ${currentAccessToken}`;
   }
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      originalRequest.url &&
+      !originalRequest.url.includes("/auth/login") &&
+      !originalRequest.url.includes("/auth/refresh")
+    ) {
+      originalRequest._retry = true;
+      try {
+        const { data } = await axios.post<AuthToken>(
+          `${API_BASE_URL}/auth/refresh`,
+          {},
+          { withCredentials: true }
+        );
+        setAccessToken(data.access_token);
+        originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        setAccessToken(null);
+        return Promise.reject(refreshError);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export async function login(username: string, password: string): Promise<AuthToken> {
   const { data } = await api.post<AuthToken>("/auth/login", { username, password });

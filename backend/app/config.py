@@ -9,15 +9,23 @@ PROJECT_DIR = BACKEND_DIR.parent
 
 class Settings(BaseSettings):
     app_name: str = "SecureFrame Gallery"
-    database_url: str = "postgresql+psycopg2://secureframe_user:secureframe_password@localhost:5432/secureframe_gallery"
-    secret_key: str = "change-this-secret-key-in-production"
+
+    database_url: str
+    secret_key: str
     algorithm: str = "HS256"
+
     access_token_expire_minutes: int = 120
     frontend_origin: str = "http://localhost:5173"
+
+    minio_url: str
+    minio_access_key: str
+    minio_secret_key: str
+    minio_bucket_name: str = "secureframe-gallery"
 
     model_config = SettingsConfigDict(
         env_file=(PROJECT_DIR / ".env", BACKEND_DIR / ".env"),
         env_file_encoding="utf-8",
+        extra="ignore"
     )
 
 

@@ -8,7 +8,12 @@ CREATE TABLE IF NOT EXISTS users (
     hashed_password VARCHAR(255) NOT NULL,
     role VARCHAR(30) NOT NULL DEFAULT 'user',
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT ck_users_role CHECK (role IN ('user', 'supervisor', 'admin'))
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    token_version INTEGER NOT NULL DEFAULT 1,
+    failed_login_count INTEGER NOT NULL DEFAULT 0,
+    locked_until TIMESTAMP WITHOUT TIME ZONE NULL,
+    CONSTRAINT ck_users_role CHECK (role IN ('user', 'supervisor', 'admin')),
+    CONSTRAINT ck_users_status CHECK (status IN ('ACTIVE', 'BLOCKED'))
 );
 
 CREATE INDEX IF NOT EXISTS ix_users_id ON users (id);
@@ -67,7 +72,7 @@ INSERT INTO users (username, email, hashed_password, role)
 VALUES (
     'admin_demo',
     'admin@example.com',
-    'pbkdf2_sha256$120000$00112233445566778899aabbccddeeff$36281ac561f7d77755e8ba0fda8f23a1351a8bb2a3c5f494b4bca3b966b74051',
+    '$argon2id$v=19$m=65536,t=3,p=4$PgdgDEEIYUwJIeS8d+691w$cgfQnGVA0CGAL2VtKN2xIuKyLb1KWeEECNwhPHnQP4Y',
     'admin'
 )
 ON CONFLICT (username) DO NOTHING;

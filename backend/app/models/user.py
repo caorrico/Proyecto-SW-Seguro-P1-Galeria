@@ -16,5 +16,11 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(30), default="user", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
+    # Security fields
+    status: Mapped[str] = mapped_column(String(20), default="ACTIVE", nullable=False) # ACTIVE, BLOCKED
+    token_version: Mapped[int] = mapped_column(default=1, nullable=False)
+    failed_login_count: Mapped[int] = mapped_column(default=0, nullable=False)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     albums = relationship("Album", back_populates="owner", foreign_keys="Album.user_id")
     reviewed_albums = relationship("Album", foreign_keys="Album.reviewed_by")

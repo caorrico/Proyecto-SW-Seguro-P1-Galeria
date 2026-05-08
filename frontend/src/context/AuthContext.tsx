@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { fetchMe, login as loginRequest, logoutRequest } from "../services/api";
+import { fetchMe, login as loginRequest, logoutRequest, setAccessToken, api } from "../services/api";
 import type { Role, User } from "../types";
 
 interface AuthContextValue {
@@ -15,19 +15,33 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem("secureframe_token"));
+  const [token, setToken] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    if (!token) {
-      return;
-    }
-    fetchMe()
-      .then(setUser)
-      .catch(() => {
-        localStorage.removeItem("secureframe_token");
+    // Attempt silent refresh on mount
+    const initAuth = async () => {
+      try {
+        const { data } = await api.post("/auth/refresh");
+        setAccessToken(data.access_token);
+        setToken(data.access_token);
+        const userData = await fetchMe();
+        setUser(userData);
+      } catch (err) {
+        // No valid session
+        setAccessToken(null);
         setToken(null);
         setUser(null);
-      });
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+    initAuth();
+  }, []);
+
+  // Update setAccessToken if token changes via login
+  useEffect(() => {
+    setAccessToken(token);
   }, [token]);
 
   const value = useMemo<AuthContextValue>(
@@ -38,7 +52,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isReviewer: user ? ["supervisor", "admin"].includes(user.role as Role) : false,
       login: async (username: string, password: string) => {
         const response = await loginRequest(username, password);
-        localStorage.setItem("secureframe_token", response.access_token);
         setToken(response.access_token);
         setUser(response.user);
       },
@@ -48,7 +61,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch {
           // ignore network errors on logout
         } finally {
-          localStorage.removeItem("secureframe_token");
           setToken(null);
           setUser(null);
         }
@@ -56,6 +68,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }),
     [token, user],
   );
+
+  if (isInitializing) {
+    return <div>Cargando sesión...</div>; // Opcional: reemplazar con un spinner bonito
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
