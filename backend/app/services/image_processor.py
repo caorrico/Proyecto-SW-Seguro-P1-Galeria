@@ -67,24 +67,29 @@ def validate_and_process_image(
     output = io.BytesIO()
     save_format = "JPEG"
     extension  = ".jpg"
+    output_mime = "image/jpeg"
 
     if mime == "image/png":
         # Mantener PNG para imágenes con transparencia
         save_format = "PNG"
         extension   = ".png"
+        output_mime = "image/png"
         if img.mode == "RGB":
             pass  # OK
     elif mime == "image/gif":
         save_format = "GIF"
         extension   = ".gif"
+        output_mime = "image/gif"
     elif mime == "image/webp":
         save_format = "WEBP"
         extension   = ".webp"
+        output_mime = "image/webp"
 
-    img.save(output, format=save_format, quality=90 if save_format == "JPEG" else None)
+    save_kwargs = {"quality": 90} if save_format == "JPEG" else {}
+    img.save(output, format=save_format, **save_kwargs)
     processed = output.getvalue()
 
-    return processed, mime, extension
+    return processed, output_mime, extension
 
 
 def generate_stored_filename(extension: str) -> str:

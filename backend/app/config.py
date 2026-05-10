@@ -10,17 +10,17 @@ PROJECT_DIR = BACKEND_DIR.parent
 class Settings(BaseSettings):
     app_name: str = "SecureFrame Gallery"
 
-    database_url: str
-    secret_key: str
+    database_url: str = "sqlite:///./secureframe.db"
+    secret_key: str = "change-me-only-for-local-development"
     algorithm: str = "HS256"
 
     access_token_expire_minutes: int = 120
     frontend_origin: str = "http://localhost:5173"
     upload_dir: str = "uploads"
 
-    minio_url: str
-    minio_access_key: str
-    minio_secret_key: str
+    minio_url: str = "localhost:9393"
+    minio_access_key: str = "minioadmin"
+    minio_secret_key: str = "change-this-minio-secret"
     minio_bucket_quarantine: str = "uploads-quarantine"
     minio_bucket_public: str = "gallery-public"
     minio_bucket_evidence: str = "rejected-evidence"

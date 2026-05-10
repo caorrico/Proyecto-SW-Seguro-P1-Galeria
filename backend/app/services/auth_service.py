@@ -11,7 +11,8 @@ from app.config import settings
 from app.database import get_db
 from app.models.user import User
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+optional_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 # Anti-enumeration setup: dummy hash for response timing equivalence
@@ -81,7 +82,16 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     return user
 
 
+def get_optional_current_user(
+    token: str | None = Depends(optional_oauth2_scheme),
+    db: Session = Depends(get_db),
+) -> User | None:
+    if not token:
+        return None
+    return get_current_user(token=token, db=db)
+
+
 def require_supervisor(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role != "supervisor":
+    if current_user.role not in {"supervisor", "admin"}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permisos insuficientes.")
     return current_user

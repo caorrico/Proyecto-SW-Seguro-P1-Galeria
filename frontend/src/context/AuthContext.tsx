@@ -58,9 +58,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
-    localStorage.removeItem('access_token');
+    void authApi.logout();
     dispatch({ type: 'CLEAR_USER' });
-    window.location.href = '/login';
   };
 
   const value: AuthContextValue = {

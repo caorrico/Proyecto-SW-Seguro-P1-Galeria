@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     token_version INTEGER NOT NULL DEFAULT 1,
     failed_login_count INTEGER NOT NULL DEFAULT 0,
     locked_until TIMESTAMP WITHOUT TIME ZONE NULL,
-    CONSTRAINT ck_users_role CHECK (role IN ('user', 'supervisor', 'admin')),
+    CONSTRAINT ck_users_role CHECK (role IN ('visitor', 'user', 'supervisor', 'admin')),
     CONSTRAINT ck_users_status CHECK (status IN ('ACTIVE', 'BLOCKED'))
 );
 
@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS images (
     album_id INTEGER NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     status VARCHAR(30) NOT NULL DEFAULT 'uploaded',
+    steg_result JSONB NULL,
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

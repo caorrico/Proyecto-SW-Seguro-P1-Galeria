@@ -26,7 +26,7 @@ def validate_safe_text(value: str, field_name: str) -> str:
 
 class AlbumCreate(BaseModel):
     title: str = Field(min_length=3, max_length=100)
-    description: str = Field(min_length=1, max_length=1000)
+    description: str = Field(default="Sin descripcion.", max_length=1000)
     privacy: AlbumPrivacy = "private"
 
     @field_validator("title")
@@ -37,6 +37,8 @@ class AlbumCreate(BaseModel):
     @field_validator("description")
     @classmethod
     def validate_description(cls, value: str) -> str:
+        if not value or not value.strip():
+            return "Sin descripcion."
         return validate_safe_text(value, "description")
 
 
@@ -49,6 +51,10 @@ class AlbumRejectRequest(BaseModel):
         if value is None:
             return None
         return validate_safe_text(value, "rejection_reason")
+
+
+class AlbumReviewRequest(AlbumRejectRequest):
+    action: Literal["approve", "reject"]
 
 
 class AlbumResponse(BaseModel):

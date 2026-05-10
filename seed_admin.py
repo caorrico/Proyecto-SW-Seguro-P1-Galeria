@@ -26,7 +26,7 @@ def seed_admin():
                 username="admin",
                 email="admin@secureframe.com",
                 hashed_password=hash_password("admin123"), 
-                role="supervisor",
+                role="admin",
                 status="ACTIVE",
                 token_version=1,
                 created_at=datetime.utcnow()
@@ -36,7 +36,7 @@ def seed_admin():
         else:
             print("El usuario administrador ya existe. Actualizando contraseña y rol...")
             admin.hashed_password = hash_password("admin123")
-            admin.role = "supervisor"
+            admin.role = "admin"
             admin.status = "ACTIVE"
             admin.failed_login_count = 0
             admin.locked_until = None

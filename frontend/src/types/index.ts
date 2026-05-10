@@ -1,5 +1,5 @@
 // ── Roles ────────────────────────────────────────────────────────────────
-export type Role = 'visitor' | 'user' | 'supervisor';
+export type Role = 'visitor' | 'user' | 'supervisor' | 'admin';
 
 // ── Auth ─────────────────────────────────────────────────────────────────
 export interface AuthUser {
@@ -13,23 +13,28 @@ export interface AuthUser {
 export interface TokenResponse {
   access_token: string;
   token_type: string;
+  user: AuthUser;
 }
 
 // ── Albums ────────────────────────────────────────────────────────────────
-export type AlbumStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type AlbumStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Album {
   id: number;
   title: string;
   description: string | null;
+  privacy: 'public' | 'private';
   status: AlbumStatus;
-  owner_id: number;
+  user_id: number;
   created_at: string;
+  updated_at: string;
+  reviewed_by: number | null;
   reviewed_at: string | null;
+  rejection_reason: string | null;
 }
 
 // ── Images ─────────────────────────────────────────────────────────────────
-export type ImageStatus = 'CLEAN' | 'QUARANTINED' | 'APPROVED_MANUAL' | 'REJECTED';
+export type ImageStatus = 'CLEAN' | 'SUSPICIOUS' | 'APPROVED_MANUAL' | 'REJECTED';
 
 export interface StegAnalysis {
   result: 'CLEAN' | 'SUSPICIOUS' | 'ERROR';
@@ -46,12 +51,10 @@ export interface GalleryImage {
   id: number;
   original_filename: string;
   stored_filename: string;
-  mime_type: string;
-  file_size: number;
   status: ImageStatus;
   steg_result: StegAnalysis | null;
   album_id: number;
-  owner_id: number;
+  user_id: number;
   created_at: string;
   reviewed_at?: string | null;
 }

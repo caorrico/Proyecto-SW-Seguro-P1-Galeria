@@ -1,34 +1,69 @@
+import { Eye, ImageIcon, LayoutDashboard, Search, Trash2, Upload, User } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { albumsApi, imagesApi } from '../services/api';
-import type { Album, GalleryImage } from '../types';
+import ThemeToggle from '../components/ThemeToggle';
 import { useAuth } from '../context/AuthContext';
+import { albumsApi, getApiErrorMessage, imagesApi } from '../services/api';
+import type { Album, GalleryImage } from '../types';
+
+const albumStatusLabels: Record<string, string> = {
+  pending: 'Pendiente',
+  approved: 'Aprobado',
+  rejected: 'Rechazado',
+};
+
+const imageStatusLabels: Record<string, string> = {
+  CLEAN: 'Limpia',
+  SUSPICIOUS: 'Sospechosa',
+  APPROVED_MANUAL: 'Aprobada manualmente',
+  REJECTED: 'Rechazada',
+};
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const [albums, setAlbums] = useState<Album[]>([]);
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
   const [images, setImages] = useState<GalleryImage[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<Record<number, string>>({});
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [newPrivacy, setNewPrivacy] = useState<'public' | 'private'>('public');
   const [uploading, setUploading] = useState(false);
   const [msg, setMsg] = useState('');
 
   const loadAlbums = () => albumsApi.myAlbums().then(r => setAlbums(r.data));
   const loadImages = (album: Album) =>
-    imagesApi.albumImages(album.id).then(r => setImages(r.data)).catch(() => setImages([]));
+    imagesApi.albumImages(album.id).then(async r => {
+      setImages(r.data);
+      const entries = await Promise.all(
+        r.data.map(async img => {
+          try {
+            const res = await imagesApi.presignedUrl(img.id);
+            return [img.id, res.data.url] as const;
+          } catch {
+            return [img.id, imagesApi.imageUrl(img.stored_filename)] as const;
+          }
+        }),
+      );
+      setPreviewUrls(Object.fromEntries(entries));
+    }).catch(() => {
+      setImages([]);
+      setPreviewUrls({});
+    });
 
   useEffect(() => { loadAlbums(); }, []);
 
   const requestAlbum = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await albumsApi.requestAlbum({ title: newTitle, description: newDesc });
-      setNewTitle(''); setNewDesc('');
-      setMsg('Album request submitted — waiting for supervisor approval.');
+      await albumsApi.requestAlbum({ title: newTitle, description: newDesc, privacy: newPrivacy });
+      setNewTitle('');
+      setNewDesc('');
+      setNewPrivacy('public');
+      setMsg('Solicitud de álbum enviada. Espera la revisión del supervisor.');
       loadAlbums();
-    } catch (err: any) {
-      setMsg(err.response?.data?.detail ?? 'Error creating album');
+    } catch (err: unknown) {
+      setMsg(getApiErrorMessage(err, 'No se pudo crear la solicitud de álbum.'));
     }
   };
 
@@ -44,14 +79,14 @@ export default function Dashboard() {
     try {
       const result = await imagesApi.upload(selectedAlbum.id, e.target.files[0]);
       const steg = result.data.steg_result;
-      if (steg?.is_suspicious) {
-        setMsg('⚠️ Image flagged for steganography and sent to quarantine.');
-      } else {
-        setMsg('✅ Image uploaded and approved successfully.');
-      }
+      setMsg(
+        steg?.is_suspicious
+          ? 'La imagen fue marcada como sospechosa y enviada a cuarentena.'
+          : 'Imagen cargada, analizada y aprobada correctamente.',
+      );
       loadImages(selectedAlbum);
-    } catch (err: any) {
-      setMsg(err.response?.data?.detail ?? 'Upload failed');
+    } catch (err: unknown) {
+      setMsg(getApiErrorMessage(err, 'No se pudo subir la imagen.'));
     } finally {
       setUploading(false);
       e.target.value = '';
@@ -59,46 +94,50 @@ export default function Dashboard() {
   };
 
   const handleDelete = async (albumId: number, imageId: number) => {
-    if (!window.confirm('Are you sure you want to delete this file?')) return;
+    if (!window.confirm('¿Seguro que deseas eliminar este archivo?')) return;
     try {
       await imagesApi.deleteImage(albumId, imageId);
       if (selectedAlbum) loadImages(selectedAlbum);
-    } catch (err: any) {
-      setMsg(err.response?.data?.detail ?? 'Delete failed');
+    } catch (err: unknown) {
+      setMsg(getApiErrorMessage(err, 'No se pudo eliminar la imagen.'));
     }
   };
 
   const statusBadge = (s: string) => {
-    const status = s.toUpperCase();
-    const cls = status === 'APPROVED' ? 'badge-green' : status === 'REJECTED' ? 'badge-red' : 'badge-yellow';
-    return <span className={`badge ${cls}`}>{s}</span>;
+    const status = s.toLowerCase();
+    const cls = status === 'approved' ? 'badge-green' : status === 'rejected' ? 'badge-red' : 'badge-yellow';
+    return <span className={`badge ${cls}`}>{albumStatusLabels[status] ?? s}</span>;
   };
 
   return (
     <div className="dashboard">
       <header className="dash-header">
-        <h1>🖼️ My Gallery</h1>
+        <h1><LayoutDashboard size={22} /> Mi galería</h1>
         <div className="dash-user">
-          {user?.role === 'supervisor' && (
-            <Link to="/supervisor" className="btn btn-warning btn-sm" style={{ marginRight: '1rem' }}>
-              🔍 Supervisor Panel
+          <ThemeToggle />
+          {(user?.role === 'supervisor' || user?.role === 'admin') && (
+            <Link to="/supervisor" className="btn btn-outline btn-sm">
+              <Search size={15} /> Panel de revisión
             </Link>
           )}
-          <span>👤 {user?.username}</span>
-          <button className="btn btn-sm" onClick={logout}>Sign Out</button>
+          <span><User size={15} /> {user?.username}</span>
+          <button className="btn btn-sm" onClick={logout}>Cerrar sesión</button>
         </div>
       </header>
 
       <div className="dash-grid">
-        {/* Left: Albums */}
         <section className="panel">
-          <h2>My Albums</h2>
+          <h2>Mis álbumes</h2>
           <form onSubmit={requestAlbum} className="form-inline">
-            <input placeholder="Album title" value={newTitle}
+            <input placeholder="Título del álbum" value={newTitle}
               onChange={e => setNewTitle(e.target.value)} required />
-            <input placeholder="Description (optional)" value={newDesc}
+            <input placeholder="Descripción (opcional)" value={newDesc}
               onChange={e => setNewDesc(e.target.value)} />
-            <button type="submit" className="btn btn-primary btn-sm">Request Album</button>
+            <select value={newPrivacy} onChange={e => setNewPrivacy(e.target.value as 'public' | 'private')}>
+              <option value="public">Público</option>
+              <option value="private">Privado</option>
+            </select>
+            <button type="submit" className="btn btn-primary btn-sm">Solicitar álbum</button>
           </form>
           {msg && <p className="form-msg">{msg}</p>}
           <ul className="album-list">
@@ -112,7 +151,6 @@ export default function Dashboard() {
           </ul>
         </section>
 
-        {/* Right: Images */}
         <section className="panel">
           {selectedAlbum ? (
             <>
@@ -120,7 +158,7 @@ export default function Dashboard() {
               {selectedAlbum.status.toUpperCase() === 'APPROVED' && (
                 <div className="upload-area">
                   <label htmlFor="file-upload" className="btn btn-primary">
-                    {uploading ? 'Uploading…' : '📤 Upload Image'}
+                    {uploading ? 'Subiendo...' : <><Upload size={16} /> Subir imagen</>}
                   </label>
                   <input id="file-upload" type="file"
                     accept="image/jpeg,image/png,image/gif,image/webp"
@@ -128,34 +166,34 @@ export default function Dashboard() {
                 </div>
               )}
               {selectedAlbum.status.toUpperCase() === 'PENDING' && (
-                <p className="notice">⏳ Album pending supervisor approval.</p>
+                <p className="notice">Álbum pendiente de aprobación por el supervisor.</p>
               )}
               <div className="image-grid">
                 {images.map(img => (
                   <div key={img.id} className="image-card">
-                    <img src={imagesApi.imageUrl(img.stored_filename)} alt={img.original_filename}
+                    <img src={previewUrls[img.id] ?? imagesApi.imageUrl(img.stored_filename)} alt={img.original_filename}
                       loading="lazy" />
                     <div className="image-info">
                       <span className={`badge ${img.status === 'CLEAN' || img.status === 'APPROVED_MANUAL' ? 'badge-green' : 'badge-yellow'}`}>
-                        {img.status}
+                        {imageStatusLabels[img.status] ?? img.status}
                       </span>
                       <span className="image-name">{img.original_filename}</span>
-                      <button 
-                        className="btn btn-red btn-sm" 
+                      <button
+                        className="btn btn-red btn-icon"
                         onClick={() => handleDelete(img.album_id, img.id)}
-                        style={{ padding: '0.2rem 0.5rem', marginLeft: 'auto' }}
-                        title="Delete file"
+                        title="Eliminar archivo"
+                        aria-label="Eliminar archivo"
                       >
-                        🗑️
+                        <Trash2 size={15} />
                       </button>
                     </div>
                   </div>
                 ))}
-                {images.length === 0 && <p className="empty">No images yet.</p>}
+                {images.length === 0 && <p className="empty"><ImageIcon size={28} /> No hay imágenes todavía.</p>}
               </div>
             </>
           ) : (
-            <p className="empty">Select an album to view or upload images.</p>
+            <p className="empty"><Eye size={28} /> Selecciona un álbum para ver o subir imágenes.</p>
           )}
         </section>
       </div>

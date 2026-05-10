@@ -1,10 +1,14 @@
 import io
+import logging
 from datetime import timedelta
 # pyrefly: ignore [missing-import]
 from minio import Minio
 # pyrefly: ignore [missing-import]
 from minio.error import S3Error
+import urllib3
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 class StorageService:
     def __init__(self):
@@ -12,7 +16,11 @@ class StorageService:
             settings.minio_url,
             access_key=settings.minio_access_key,
             secret_key=settings.minio_secret_key,
-            secure=False
+            secure=False,
+            http_client=urllib3.PoolManager(
+                timeout=urllib3.Timeout(connect=2.0, read=2.0),
+                retries=False,
+            ),
         )
         self.buckets = {
             "quarantine": settings.minio_bucket_quarantine,
@@ -27,8 +35,8 @@ class StorageService:
                 if not self.client.bucket_exists(bucket):
                     self.client.make_bucket(bucket)
                     print(f"Created bucket: {bucket}")
-            except S3Error as e:
-                print(f"Error ensuring bucket {bucket} exists: {e}")
+            except Exception as e:
+                logger.warning("Error ensuring bucket %s exists: %s", bucket, e)
 
     def upload_to_quarantine(self, file_data: bytes, file_name: str, content_type: str):
         try:
@@ -40,8 +48,8 @@ class StorageService:
                 content_type=content_type
             )
             return file_name
-        except S3Error as e:
-            print(f"Error uploading to quarantine: {e}")
+        except Exception as e:
+            logger.error("Error uploading to quarantine: %s", e)
             return None
 
     def move_object(self, source_bucket_key: str, dest_bucket_key: str, file_name: str):
@@ -64,7 +72,7 @@ class StorageService:
                     continue
             
             if not actual_source:
-                print(f"CRITICAL: File {file_name} not found in any bucket.")
+                logger.error("File %s not found in any bucket.", file_name)
                 return False
 
             # Copy
@@ -78,7 +86,7 @@ class StorageService:
             self.client.remove_object(actual_source, file_name)
             return True
         except Exception as e:
-            print(f"Error moving object: {e}")
+            logger.error("Error moving object: %s", e)
             return False
 
     def get_presigned_url(self, bucket_key: str, file_name: str, expires_minutes: int = 5):
@@ -89,16 +97,16 @@ class StorageService:
                 file_name,
                 expires=timedelta(minutes=expires_minutes)
             )
-        except S3Error as e:
-            print(f"Error generating presigned URL for {bucket_key}: {e}")
+        except Exception as e:
+            logger.error("Error generating presigned URL for %s: %s", bucket_key, e)
             return None
 
     def delete_file(self, bucket_key: str, file_name: str):
         try:
             self.client.remove_object(self.buckets[bucket_key], file_name)
             return True
-        except S3Error as e:
-            print(f"Error deleting file from {bucket_key}: {e}")
+        except Exception as e:
+            logger.error("Error deleting file from %s: %s", bucket_key, e)
             return False
 
 storage_service = StorageService()

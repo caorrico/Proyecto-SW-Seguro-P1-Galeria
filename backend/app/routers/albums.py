@@ -1,6 +1,7 @@
 from datetime import datetime
+import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status, UploadFile, File
 from sqlalchemy.orm import Session
 from pathlib import Path
 from uuid import uuid4
@@ -9,15 +10,16 @@ from app.database import get_db
 from app.models.album import Album
 from app.models.image import Image
 from app.models.user import User
-from app.schemas.album import AlbumCreate, AlbumRejectRequest, AlbumResponse, AlbumStatus
+from app.middleware.rate_limiter import limiter
+from app.schemas.album import AlbumCreate, AlbumResponse, AlbumReviewRequest, AlbumStatus
 from app.schemas.image import ImageResponse
-from app.services.auth_service import get_current_user, require_supervisor
+from app.services.auth_service import get_current_user, get_optional_current_user, require_supervisor
 from app.services.storage_service import storage_service
 from app.services.steg_analyzer import analyze_image
 from app.services.image_processor import detect_mime_type, validate_and_process_image, check_eof_markers
-import json
 
 router = APIRouter(prefix="/albums", tags=["albums"])
+logger = logging.getLogger(__name__)
 
 
 def ensure_pending(album: Album) -> None:
@@ -30,7 +32,7 @@ def ensure_pending(album: Album) -> None:
 
 @router.post("/request", response_model=AlbumResponse, status_code=status.HTTP_201_CREATED)
 def request_album(payload: AlbumCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if current_user.role == "supervisor":
+    if current_user.role in {"supervisor", "admin"}:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, 
             detail="Los supervisores no pueden solicitar la creacion de albumes."
@@ -86,13 +88,11 @@ def list_pending_albums(
 @router.patch("/{album_id}/review", response_model=AlbumResponse)
 def review_album(
     album_id: int,
-    payload: dict,
+    payload: AlbumReviewRequest,
     reviewer: User = Depends(require_supervisor),
     db: Session = Depends(get_db),
 ):
-    action = payload.get("action")
-    if action not in ["approve", "reject"]:
-        raise HTTPException(status_code=400, detail="Accion invalida.")
+    action = payload.action
 
     album = db.get(Album, album_id)
     if album is None:
@@ -104,7 +104,7 @@ def review_album(
         album.status = "approved"
     else:
         album.status = "rejected"
-        album.rejection_reason = payload.get("rejection_reason", "Rechazado por el supervisor.")
+        album.rejection_reason = payload.rejection_reason or "Rechazado por el supervisor."
 
     album.reviewed_by = reviewer.id
     album.reviewed_at = datetime.utcnow()
@@ -129,7 +129,9 @@ def review_album(
 
 
 @router.post("/{album_id}/images", response_model=ImageResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
 async def upload_album_image(
+    request: Request,
     album_id: int,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
@@ -154,6 +156,8 @@ async def upload_album_image(
     # 2. Detección de tipo real (Magic Bytes)
     mime = detect_mime_type(file_content)
     is_image = mime and mime.startswith("image/")
+    if not is_image:
+        raise HTTPException(status_code=422, detail="Solo se permiten imagenes validas.")
 
     # 3. Procesamiento y Sanitización
     processed_content = file_content
@@ -164,7 +168,8 @@ async def upload_album_image(
     if is_image:
         try:
             # Re-encoding y limpieza de EXIF
-            processed_content, _, extension = validate_and_process_image(file_content, file.filename or "")
+            processed_content, processed_mime, extension = validate_and_process_image(file_content, file.filename or "")
+            mime = processed_mime
             # Actualizar nombre con la extensión correcta detectada
             safe_name = f"{uuid4().hex}{extension}"
             
@@ -177,9 +182,9 @@ async def upload_album_image(
                 steg_result["is_suspicious"] = True
                 steg_result["eof_alert"] = "DATA DETECTED AFTER EOF MARKER"
         except Exception as e:
-            print(f"DEBUG: Error procesando imagen: {e}")
+            logger.warning("Image processing failed; upload sent to quarantine: %s", e)
             # Si falla el procesado de imagen, lo tratamos como sospechoso
-            steg_result = {"result": "ERROR", "is_suspicious": True, "error": str(e)}
+            steg_result = {"result": "ERROR", "is_suspicious": True, "error": "IMAGE_PROCESSING_FAILED"}
 
     # 4. Subida a cuarentena
     stored_name = storage_service.upload_to_quarantine(
@@ -192,9 +197,14 @@ async def upload_album_image(
         raise HTTPException(status_code=500, detail="Error al subir el archivo a cuarentena.")
 
     # 5. Veredicto de estado
-    final_status = "PENDING"
+    final_status = "CLEAN"
     if steg_result.get("is_suspicious"):
         final_status = "SUSPICIOUS"
+    elif not storage_service.move_object("quarantine", "public", stored_name):
+        final_status = "SUSPICIOUS"
+        steg_result["result"] = "SUSPICIOUS"
+        steg_result["is_suspicious"] = True
+        steg_result["storage_alert"] = "COULD_NOT_PROMOTE_TO_PUBLIC_BUCKET"
 
     image = Image(
         filename=file.filename or safe_name,
@@ -213,17 +223,23 @@ async def upload_album_image(
 @router.get("/{album_id}/images", response_model=list[ImageResponse])
 def list_album_images(
     album_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User | None = Depends(get_optional_current_user),
     db: Session = Depends(get_db),
 ):
     album = db.get(Album, album_id)
     if not album:
         raise HTTPException(status_code=404, detail="Album no encontrado.")
     
-    if album.user_id != current_user.id and (album.privacy != "public" or album.status != "approved"):
-         raise HTTPException(status_code=403, detail="Acceso denegado.")
+    is_owner = bool(current_user and album.user_id == current_user.id)
+    is_reviewer = bool(current_user and current_user.role in {"supervisor", "admin"})
+    is_public_album = album.privacy == "public" and album.status == "approved"
+    if not (is_owner or is_reviewer or is_public_album):
+        raise HTTPException(status_code=403, detail="Acceso denegado.")
 
-    return db.query(Image).filter(Image.album_id == album_id).all()
+    query = db.query(Image).filter(Image.album_id == album_id)
+    if not (is_owner or is_reviewer):
+        query = query.filter(Image.status.in_(["CLEAN", "APPROVED_MANUAL"]))
+    return query.order_by(Image.created_at.desc()).all()
 
 
 @router.delete("/{album_id}/images/{image_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -237,7 +253,7 @@ def delete_album_image(
     if not image or image.album_id != album_id:
         raise HTTPException(status_code=404, detail="Imagen no encontrada.")
     
-    if image.user_id != current_user.id and current_user.role != "supervisor":
+    if image.user_id != current_user.id and current_user.role not in {"supervisor", "admin"}:
         raise HTTPException(status_code=403, detail="No tienes permiso para borrar esta imagen.")
     
     # Determinar en qué bucket está

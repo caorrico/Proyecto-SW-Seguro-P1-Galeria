@@ -38,13 +38,14 @@ def register(request: Request, payload: UserCreate, db: Session = Depends(get_db
 @router.post("/login", response_model=Token)
 @limiter.limit("5/minute")
 def login(request: Request, response: Response, payload: UserLogin, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == payload.username.strip()).first()
+    login_id = payload.username.strip()
+    user = db.query(User).filter(or_(User.username == login_id, User.email == login_id.lower())).first()
     
     # Anti-enumeration via timing equivalence
     if not user:
         verify_password(payload.password, dummy_hash)
         logger.warning(f"Failed login attempt for non-existent user: {payload.username}")
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales invalidas.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas.")
 
     if user.status == "BLOCKED":
         logger.warning(f"Login attempt on blocked account: {user.username}")
@@ -60,7 +61,7 @@ def login(request: Request, response: Response, payload: UserLogin, db: Session 
             user.locked_until = datetime.utcnow() + timedelta(minutes=15)
             logger.warning(f"Account locked due to multiple failed logins: {user.username}")
         db.commit()
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales invalidas.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas.")
         
     # Successful login
     user.failed_login_count = 0
@@ -96,7 +97,7 @@ def login(request: Request, response: Response, payload: UserLogin, db: Session 
 @router.post("/refresh", response_model=Token)
 def refresh_token(response: Response, secureframe_refresh: str | None = Cookie(None), db: Session = Depends(get_db)):
     if not secureframe_refresh:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No refresh token found.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No se encontró el token de refresco.")
         
     try:
         from jose import jwt, JWTError
@@ -104,18 +105,18 @@ def refresh_token(response: Response, secureframe_refresh: str | None = Cookie(N
         
         payload = jwt.decode(secureframe_refresh, settings.secret_key, algorithms=[settings.algorithm])
         if payload.get("type") != "refresh":
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type.")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Tipo de token inválido.")
             
         user_id = payload.get("sub")
         token_version = payload.get("token_version")
         jti = payload.get("jti")
 
         if user_id is None or token_version is None or jti is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload.")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Contenido del token inválido.")
             
         user = db.get(User, int(user_id))
         if user is None or user.status == "BLOCKED" or user.token_version != token_version:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token invalid or user blocked.")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido o usuario bloqueado.")
 
         # VERIFICACIÓN DE REUTILIZACIÓN (Replay Attack Prevention)
         stored_session = db.query(RefreshToken).filter(RefreshToken.jti == jti).first()
@@ -127,7 +128,7 @@ def refresh_token(response: Response, secureframe_refresh: str | None = Cookie(N
             db.query(RefreshToken).filter(RefreshToken.user_id == user.id).delete()
             db.commit()
             response.delete_cookie("secureframe_refresh")
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Security breach detected. Please log in again.")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Se detectó reutilización de token. Inicia sesión nuevamente.")
 
         # Rotar token: borrar viejo JTI, crear uno nuevo
         db.delete(stored_session)
@@ -157,13 +158,13 @@ def refresh_token(response: Response, secureframe_refresh: str | None = Cookie(N
         return Token(access_token=new_access_token, user=user)
         
     except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token de refresco inválido.")
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
 def logout(response: Response, token: str = Depends(oauth2_scheme)):
     token_blocklist.add(token)
     response.delete_cookie("secureframe_refresh")
-    return {"detail": "Sesion cerrada exitosamente."}
+    return {"detail": "Sesión cerrada exitosamente."}
 
 @router.get("/me", response_model=UserResponse)
 def me(current_user: User = Depends(get_current_user)):

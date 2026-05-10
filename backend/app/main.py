@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import inspect, text
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -24,6 +25,7 @@ def _init_db(max_retries: int = 5, delay: int = 3):
     for attempt in range(1, max_retries + 1):
         try:
             Base.metadata.create_all(bind=engine)
+            _apply_lightweight_migrations()
             logger.info("Database tables created/verified.")
 
             # Auto-seed admin user if it doesn't exist
@@ -36,7 +38,7 @@ def _init_db(max_retries: int = 5, delay: int = 3):
                         username="admin",
                         email="admin@secureframe.com",
                         hashed_password=hash_password("admin123"),
-                        role="supervisor",
+                        role="admin",
                         status="ACTIVE",
                         token_version=1,
                         created_at=datetime.utcnow(),
@@ -57,6 +59,19 @@ def _init_db(max_retries: int = 5, delay: int = 3):
                 logger.error("Could not connect to database after retries. Starting without DB init.")
 
 
+def _apply_lightweight_migrations() -> None:
+    """Small compatibility migrations for academic/local deployments without Alembic."""
+    inspector = inspect(engine)
+    if "images" not in inspector.get_table_names():
+        return
+
+    image_columns = {column["name"] for column in inspector.get_columns("images")}
+    with engine.begin() as connection:
+        if "steg_result" not in image_columns:
+            column_type = "JSONB" if engine.dialect.name == "postgresql" else "JSON"
+            connection.execute(text(f"ALTER TABLE images ADD COLUMN steg_result {column_type} NULL"))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     _init_db()
@@ -71,7 +86,11 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_origin],
+    allow_origins=list({
+        settings.frontend_origin,
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    }),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

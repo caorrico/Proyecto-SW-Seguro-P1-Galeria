@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB:       ${POSTGRES_DB:-secureframe_gallery}
       POSTGRES_USER:     ${POSTGRES_USER:-secureframe_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-SUPER_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-this-postgres-password}
     ports:
       - "5434:5432"
     volumes:
@@ -26,7 +26,7 @@ services:
       - "9001:9001"
     environment:
       MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: SUPER_SECRET
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-change-this-minio-secret}
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data

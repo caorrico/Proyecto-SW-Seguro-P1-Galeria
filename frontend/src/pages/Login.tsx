@@ -1,5 +1,7 @@
+import { ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import ThemeToggle from '../components/ThemeToggle';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
@@ -18,7 +20,7 @@ export default function Login() {
       await login(username, password);
       navigate('/dashboard');
     } catch {
-      setError('Invalid username or password');
+      setError('Usuario o contraseña inválidos');
     } finally {
       setLoading(false);
     }
@@ -26,27 +28,28 @@ export default function Login() {
 
   return (
     <div className="auth-page">
+      <div className="auth-theme"><ThemeToggle /></div>
       <div className="auth-card">
-        <div className="auth-logo">🛡️</div>
+        <div className="auth-logo"><ShieldCheck size={42} /></div>
         <h1>SecureFrame Gallery</h1>
-        <p className="auth-subtitle">Sign in to your account</p>
+        <p className="auth-subtitle">Inicia sesión en tu cuenta</p>
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
-            <label htmlFor="username">Username or Email</label>
+            <label htmlFor="username">Usuario o correo</label>
             <input id="username" type="text" value={username}
               onChange={e => setUsername(e.target.value)} required autoComplete="username" />
           </div>
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">Contraseña</label>
             <input id="password" type="password" value={password}
               onChange={e => setPassword(e.target.value)} required autoComplete="current-password" />
           </div>
           {error && <p className="form-error">{error}</p>}
           <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? 'Signing in…' : 'Sign In'}
+            {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
           </button>
         </form>
-        <p className="auth-link">Don't have an account? <Link to="/register">Register</Link></p>
+        <p className="auth-link">¿No tienes una cuenta? <Link to="/register">Regístrate</Link></p>
       </div>
     </div>
   );

@@ -1,50 +1,100 @@
 $ErrorActionPreference = "Stop"
 
-Write-Host "Iniciando SecureFrame Gallery..." -ForegroundColor Cyan
+$Root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$BackendDir = Join-Path $Root "backend"
+$FrontendDir = Join-Path $Root "frontend"
+$Python = Join-Path $BackendDir ".venv\Scripts\python.exe"
+$NodeDir = "C:\Program Files\nodejs"
+$Npm = Join-Path $NodeDir "npm.cmd"
 
-# 1. Iniciar Base de Datos (Docker en WSL)
-Write-Host "Levantando Base de Datos (PostgreSQL en WSL)..." -ForegroundColor Yellow
-wsl docker compose up -d
+Write-Host "Iniciando SecureFrame Gallery en terminales visibles..." -ForegroundColor Cyan
 
-# 2. Esperar a que la BD esté lista (dentro de WSL)
-Write-Host "Esperando a que la BD responda..."
-$maxWait = 30
+if (-not (Test-Path $Python)) {
+    $SystemPython = Join-Path $env:LOCALAPPDATA "Programs\Python\Python312\python.exe"
+    if (-not (Test-Path $SystemPython)) {
+        throw "No se encontro Python. Instala Python 3.12 o ajusta la ruta en start_all.ps1."
+    }
+
+    Write-Host "Creando entorno virtual backend\\.venv..." -ForegroundColor Yellow
+    & $SystemPython -m venv (Join-Path $BackendDir ".venv")
+}
+
+if (-not (Test-Path $Npm)) {
+    throw "No se encontro npm en $Npm. Instala Node.js LTS o ajusta la ruta en start_all.ps1."
+}
+
+Write-Host "Levantando infraestructura local (PostgreSQL + MinIO)..." -ForegroundColor Yellow
+docker compose up -d
+
+Write-Host "Esperando PostgreSQL..." -ForegroundColor Yellow
+$maxWait = 40
 $waited = 0
 while ($waited -lt $maxWait) {
-    wsl docker exec secureframe_db pg_isready -U secureframe_user -d secureframe_gallery
+    docker exec secureframe_db pg_isready -U secureframe_user -d secureframe_gallery | Out-Null
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "[OK] Base de datos lista" -ForegroundColor Green
+        Write-Host "[OK] PostgreSQL listo" -ForegroundColor Green
         break
     }
     Start-Sleep -Seconds 2
     $waited += 2
-    Write-Host "  Esperando... ($waited s)" -ForegroundColor DarkGray
 }
 
-# 3. Actualizar .env para uso interno de WSL
-# En WSL, conectamos a localhost:5434
+if ($waited -ge $maxWait) {
+    throw "PostgreSQL no respondio a tiempo."
+}
+
 $envContent = @"
-DATABASE_URL=postgresql+psycopg2://secureframe_user:SUPER_PASSWORD@localhost:5434/secureframe_gallery
-SECRET_KEY=una_clave_larga_y_random
+DATABASE_URL=postgresql+psycopg2://secureframe_user:change-this-postgres-password@localhost:5434/secureframe_gallery
+SECRET_KEY=change-this-development-secret-before-production
 MINIO_URL=localhost:9393
 MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=SUPER_SECRET
+MINIO_SECRET_KEY=change-this-minio-secret
+FRONTEND_ORIGIN=http://localhost:5173
 "@
-Set-Content -Path "backend\.env" -Value $envContent -NoNewline
+Set-Content -Path (Join-Path $BackendDir ".env") -Value $envContent -NoNewline
 
-# 4. Iniciar Backend DENTRO de WSL
-Write-Host "Iniciando Backend (FastAPI en WSL)..." -ForegroundColor Yellow
-# Nos aseguramos de que el venv sea válido, instalamos dependencias, semilla de BD y corremos el servidor
-$backendCmd = "wsl bash -c 'cd backend && ( [ ! -f .venv_wsl/bin/python3 ] && rm -rf .venv_wsl ); [ ! -d .venv_wsl ] && python3 -m venv .venv_wsl; ./.venv_wsl/bin/python3 -m pip install --upgrade pip && ./.venv_wsl/bin/python3 -m pip install -r requirements.txt && ./.venv_wsl/bin/python3 ../seed_admin.py && ./.venv_wsl/bin/python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload'"
-Start-Process powershell -ArgumentList "-NoExit -Command `"$backendCmd`""
+Write-Host "Instalando/verificando dependencias del backend..." -ForegroundColor Yellow
+& $Python -m pip install -r (Join-Path $BackendDir "requirements.txt")
 
-# 5. Iniciar Frontend (Windows)
-Write-Host "Iniciando Frontend (Vite en Windows)..." -ForegroundColor Yellow
-$frontendCmd = "cd frontend; npm install; npm run dev"
-Start-Process powershell -ArgumentList "-NoExit -Command `"$frontendCmd`""
+Write-Host "Creando/actualizando usuario admin..." -ForegroundColor Yellow
+& $Python (Join-Path $Root "seed_admin.py")
+
+Write-Host "Instalando/verificando dependencias del frontend..." -ForegroundColor Yellow
+$env:Path = "$NodeDir;$env:Path"
+Push-Location $FrontendDir
+try {
+    & $Npm install
+}
+finally {
+    Pop-Location
+}
+
+$BackendCommand = @"
+`$env:DATABASE_URL='postgresql+psycopg2://secureframe_user:change-this-postgres-password@localhost:5434/secureframe_gallery'
+`$env:SECRET_KEY='change-this-development-secret-before-production'
+`$env:MINIO_URL='localhost:9393'
+`$env:MINIO_ACCESS_KEY='minioadmin'
+`$env:MINIO_SECRET_KEY='change-this-minio-secret'
+`$env:FRONTEND_ORIGIN='http://localhost:5173'
+cd '$BackendDir'
+& '$Python' -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+"@
+
+$FrontendCommand = @"
+`$env:Path='$NodeDir;' + `$env:Path
+cd '$FrontendDir'
+& '$Npm' run dev -- --host 0.0.0.0 --port 5173
+"@
+
+Write-Host "Abriendo terminal visible del backend..." -ForegroundColor Yellow
+Start-Process powershell -ArgumentList "-NoExit", "-ExecutionPolicy", "Bypass", "-Command", $BackendCommand
+
+Write-Host "Abriendo terminal visible del frontend..." -ForegroundColor Yellow
+Start-Process powershell -ArgumentList "-NoExit", "-ExecutionPolicy", "Bypass", "-Command", $FrontendCommand
 
 Write-Host ""
-Write-Host "=== Sistema levantado ===" -ForegroundColor Green
-Write-Host "- Backend:  http://localhost:8000 (vía WSL)"
+Write-Host "=== Sistema levantandose en terminales visibles ===" -ForegroundColor Green
+Write-Host "- Backend:  http://localhost:8000"
 Write-Host "- Frontend: http://localhost:5173"
+Write-Host "- MinIO:    http://localhost:9001"
 Write-Host "- Admin:    admin / admin123" -ForegroundColor Cyan

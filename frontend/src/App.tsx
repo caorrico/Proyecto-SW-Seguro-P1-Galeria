@@ -1,18 +1,19 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import Dashboard from './pages/Dashboard';
 import Gallery from './pages/Gallery';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
 import Supervisor from './pages/Supervisor';
 
-function PrivateRoute({ children, role }: { children: React.ReactNode; role?: string }) {
+function PrivateRoute({ children, role }: { children: React.ReactNode; role?: string | string[] }) {
   const { isAuthenticated, loading, user } = useAuth();
-  if (loading) return <div className="loading">Loading…</div>;
+  if (loading) return <div className="loading">Cargando...</div>;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
   if (role) {
-    const hasAccess = user?.role === role;
+    const allowedRoles = Array.isArray(role) ? role : [role];
+    const hasAccess = !!user && allowedRoles.includes(user.role);
     if (!hasAccess) return <Navigate to="/dashboard" replace />;
   }
 
@@ -22,12 +23,12 @@ function PrivateRoute({ children, role }: { children: React.ReactNode; role?: st
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/"           element={<Gallery />} />
-      <Route path="/login"      element={<Login />} />
-      <Route path="/register"   element={<Register />} />
-      <Route path="/dashboard"  element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-      <Route path="/supervisor" element={<PrivateRoute role="supervisor"><Supervisor /></PrivateRoute>} />
-      <Route path="*"           element={<Navigate to="/" replace />} />
+      <Route path="/" element={<Gallery />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+      <Route path="/supervisor" element={<PrivateRoute role={['supervisor', 'admin']}><Supervisor /></PrivateRoute>} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
