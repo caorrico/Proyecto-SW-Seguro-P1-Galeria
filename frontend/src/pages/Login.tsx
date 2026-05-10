@@ -18,7 +18,7 @@ export default function Login() {
     setLoading(true);
     try {
       await login(username, password);
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } catch {
       setError('Usuario o contraseña inválidos');
     } finally {

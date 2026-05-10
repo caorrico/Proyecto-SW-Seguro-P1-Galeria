@@ -2,6 +2,7 @@ from datetime import datetime
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status, UploadFile, File
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pathlib import Path
 from uuid import uuid4
@@ -22,8 +23,12 @@ router = APIRouter(prefix="/albums", tags=["albums"])
 logger = logging.getLogger(__name__)
 
 
+def _normalized(value: str | None) -> str:
+    return (value or "").strip().lower()
+
+
 def ensure_pending(album: Album) -> None:
-    if album.status != "pending":
+    if _normalized(album.status) != "pending":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Solo se pueden revisar albumes en estado pending.",
@@ -66,7 +71,10 @@ def list_my_albums(
 def list_public_albums(db: Session = Depends(get_db)):
     return (
         db.query(Album)
-        .filter(Album.status == "approved", Album.privacy == "public")
+        .filter(
+            func.lower(func.trim(Album.status)) == "approved",
+            func.lower(func.trim(Album.privacy)) == "public",
+        )
         .order_by(Album.created_at.desc())
         .all()
     )
@@ -141,7 +149,7 @@ async def upload_album_image(
     if album is None or album.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Album no encontrado.")
     
-    if album.status != "approved":
+    if _normalized(album.status) != "approved":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Solo se pueden subir imagenes a albumes aprobados.",
@@ -232,7 +240,7 @@ def list_album_images(
     
     is_owner = bool(current_user and album.user_id == current_user.id)
     is_reviewer = bool(current_user and current_user.role in {"supervisor", "admin"})
-    is_public_album = album.privacy == "public" and album.status == "approved"
+    is_public_album = _normalized(album.privacy) == "public" and _normalized(album.status) == "approved"
     if not (is_owner or is_reviewer or is_public_album):
         raise HTTPException(status_code=403, detail="Acceso denegado.")
 

@@ -19,6 +19,10 @@ router = APIRouter(prefix="/images", tags=["images"])
 logger = logging.getLogger(__name__)
 
 
+def _normalized(value: str | None) -> str:
+    return (value or "").strip().lower()
+
+
 @router.get("/{filename}")
 async def get_image_file(
     filename: str,
@@ -38,8 +42,8 @@ async def get_image_file(
     is_public_image = (
         image.status in ["CLEAN", "APPROVED_MANUAL"]
         and album is not None
-        and album.status == "approved"
-        and album.privacy == "public"
+        and _normalized(album.status) == "approved"
+        and _normalized(album.privacy) == "public"
     )
     is_owner = bool(current_user and image.user_id == current_user.id)
     is_reviewer = bool(current_user and current_user.role in {"supervisor", "admin"})
@@ -84,7 +88,7 @@ async def upload_image(
     album = db.get(Album, album_id)
     if album is None or album.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Album no encontrado.")
-    if album.status != "approved":
+    if _normalized(album.status) != "approved":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Solo se pueden subir imagenes a albumes aprobados.",
@@ -153,7 +157,7 @@ def get_image_url(
     # Optional: check if user has access to the album
     album = db.get(Album, image.album_id)
     if (
-        album.privacy == "private"
+        _normalized(album.privacy) == "private"
         and album.user_id != current_user.id
         and current_user.role not in {"supervisor", "admin"}
     ):

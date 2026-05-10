@@ -29,7 +29,7 @@ interface AuthContextValue {
   role: Role | 'visitor';
   isAuthenticated: boolean;
   login: (username: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -51,14 +51,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
   }, []);
 
+  useEffect(() => {
+    const syncSession = () => {
+      if (!localStorage.getItem('access_token')) {
+        dispatch({ type: 'CLEAR_USER' });
+      }
+    };
+
+    window.addEventListener('pageshow', syncSession);
+    window.addEventListener('storage', syncSession);
+    return () => {
+      window.removeEventListener('pageshow', syncSession);
+      window.removeEventListener('storage', syncSession);
+    };
+  }, []);
+
   const login = async (username: string, password: string) => {
     await authApi.login(username, password);
     const res = await authApi.me();
     dispatch({ type: 'SET_USER', payload: res.data });
   };
 
-  const logout = () => {
-    void authApi.logout();
+  const logout = async () => {
+    dispatch({ type: 'CLEAR_USER' });
+    await authApi.logout();
     dispatch({ type: 'CLEAR_USER' });
   };
 

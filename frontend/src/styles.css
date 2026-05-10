@@ -178,7 +178,7 @@ a:hover { color: var(--accent); }
 
 /* ── Badges ──────────────────────────────────────────────────────────── */
 .badge {
-  display: inline-flex; align-items: center;
+  display: inline-flex; align-items: center; gap: .25rem;
   padding: .2rem .55rem; border-radius: 99px;
   font-size: .72rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
 }
@@ -186,6 +186,7 @@ a:hover { color: var(--accent); }
 .badge-red    { background: rgba(239,68,68,.15);  color: var(--red);    }
 .badge-yellow { background: rgba(245,158,11,.15); color: var(--yellow); }
 .badge-blue   { background: rgba(59,130,246,.15); color: var(--accent-light); }
+.badge-muted  { background: var(--bg-700); color: var(--text-secondary); border: 1px solid var(--border); }
 
 /* ── Forms ───────────────────────────────────────────────────────────── */
 .form-group { display: flex; flex-direction: column; gap: .35rem; }
@@ -265,10 +266,13 @@ input::placeholder { color: var(--text-muted); }
 .album-list { list-style: none; display: flex; flex-direction: column; gap: .35rem; }
 .album-item {
   display: flex; align-items: center; justify-content: space-between;
+  gap: .6rem;
   padding: .6rem .85rem; border-radius: var(--radius-sm);
   cursor: pointer; transition: background .15s;
   border: 1px solid transparent; font-size: .88rem;
 }
+.album-item > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.album-badges { display: inline-flex; align-items: center; justify-content: flex-end; gap: .35rem; flex-wrap: wrap; }
 .album-item:hover { background: var(--bg-700); }
 .album-item.active { background: var(--bg-500); border-color: var(--border-accent); }
 
@@ -316,6 +320,7 @@ input::placeholder { color: var(--text-muted); }
 .gallery-icon { display: inline-flex; color: var(--accent); }
 .gallery-brand h1 { font-size: 1.1rem; font-weight: 700; }
 .gallery-nav { display: flex; gap: .5rem; align-items: center; }
+.nav-user { color: var(--text-secondary); font-size: .85rem; font-weight: 600; }
 
 .gallery-main { padding: 1.25rem; max-width: 1400px; margin: 0 auto; }
 

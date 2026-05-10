@@ -1,5 +1,6 @@
 import { CheckCircle, ClipboardList, Search, ShieldAlert, Trash2, User, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 import { useAuth } from '../context/AuthContext';
 import { albumsApi, imagesApi } from '../services/api';
@@ -7,6 +8,7 @@ import type { Album, GalleryImage } from '../types';
 
 export default function Supervisor() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<'albums' | 'quarantine'>('albums');
   const [pendingAlbums, setPendingAlbums] = useState<Album[]>([]);
   const [quarantine, setQuarantine] = useState<GalleryImage[]>([]);
@@ -48,6 +50,11 @@ export default function Supervisor() {
     } catch { setMsg('No se pudo completar la acción.'); }
   };
 
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
+  };
+
   return (
     <div className="dashboard">
       <header className="dash-header">
@@ -55,7 +62,7 @@ export default function Supervisor() {
         <div className="dash-user">
           <ThemeToggle />
           <span><User size={15} /> {user?.username}</span>
-          <button className="btn btn-sm" onClick={logout}>Cerrar sesión</button>
+          <button className="btn btn-sm" onClick={handleLogout}>Cerrar sesión</button>
         </div>
       </header>
 

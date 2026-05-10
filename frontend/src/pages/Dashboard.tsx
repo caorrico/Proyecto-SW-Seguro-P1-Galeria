@@ -1,6 +1,6 @@
-import { Eye, ImageIcon, LayoutDashboard, Search, Trash2, Upload, User } from 'lucide-react';
+import { Eye, Globe2, ImageIcon, LayoutDashboard, Lock, Search, Trash2, Upload, User } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
 import { useAuth } from '../context/AuthContext';
 import { albumsApi, getApiErrorMessage, imagesApi } from '../services/api';
@@ -19,8 +19,14 @@ const imageStatusLabels: Record<string, string> = {
   REJECTED: 'Rechazada',
 };
 
+const privacyLabels: Record<string, string> = {
+  public: 'Público',
+  private: 'Privado',
+};
+
 export default function Dashboard() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [albums, setAlbums] = useState<Album[]>([]);
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
   const [images, setImages] = useState<GalleryImage[]>([]);
@@ -103,10 +109,21 @@ export default function Dashboard() {
     }
   };
 
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
+  };
+
   const statusBadge = (s: string) => {
     const status = s.toLowerCase();
     const cls = status === 'approved' ? 'badge-green' : status === 'rejected' ? 'badge-red' : 'badge-yellow';
     return <span className={`badge ${cls}`}>{albumStatusLabels[status] ?? s}</span>;
+  };
+
+  const privacyBadge = (privacy: string) => {
+    const normalized = privacy.toLowerCase();
+    const icon = normalized === 'public' ? <Globe2 size={13} /> : <Lock size={13} />;
+    return <span className="badge badge-muted">{icon}{privacyLabels[normalized] ?? privacy}</span>;
   };
 
   return (
@@ -115,13 +132,16 @@ export default function Dashboard() {
         <h1><LayoutDashboard size={22} /> Mi galería</h1>
         <div className="dash-user">
           <ThemeToggle />
+          <Link to="/" className="btn btn-outline btn-sm">
+            <Globe2 size={15} /> Galería pública
+          </Link>
           {(user?.role === 'supervisor' || user?.role === 'admin') && (
             <Link to="/supervisor" className="btn btn-outline btn-sm">
               <Search size={15} /> Panel de revisión
             </Link>
           )}
           <span><User size={15} /> {user?.username}</span>
-          <button className="btn btn-sm" onClick={logout}>Cerrar sesión</button>
+          <button className="btn btn-sm" onClick={handleLogout}>Cerrar sesión</button>
         </div>
       </header>
 
@@ -145,7 +165,8 @@ export default function Dashboard() {
               <li key={a.id}
                 className={`album-item ${selectedAlbum?.id === a.id ? 'active' : ''}`}
                 onClick={() => selectAlbum(a)}>
-                <span>{a.title}</span>{statusBadge(a.status)}
+                <span>{a.title}</span>
+                <span className="album-badges">{privacyBadge(a.privacy)}{statusBadge(a.status)}</span>
               </li>
             ))}
           </ul>

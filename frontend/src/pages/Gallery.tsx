@@ -1,11 +1,17 @@
 import { Folder, ImageIcon, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
+import { useAuth } from '../context/AuthContext';
 import { albumsApi, imagesApi } from '../services/api';
 import type { Album, GalleryImage } from '../types';
 
+const isPublicApprovedAlbum = (album: Album) =>
+  album.privacy.toLowerCase() === 'public' && album.status.toLowerCase() === 'approved';
+
 export default function Gallery() {
+  const { isAuthenticated, user, logout } = useAuth();
+  const navigate = useNavigate();
   const [albums, setAlbums] = useState<Album[]>([]);
   const [selected, setSelected] = useState<Album | null>(null);
   const [images, setImages] = useState<GalleryImage[]>([]);
@@ -13,13 +19,23 @@ export default function Gallery() {
 
   useEffect(() => {
     albumsApi.publicAlbums()
-      .then(r => setAlbums(r.data))
+      .then(r => setAlbums(r.data.filter(isPublicApprovedAlbum)))
       .finally(() => setLoading(false));
   }, []);
 
   const selectAlbum = (album: Album) => {
+    if (!isPublicApprovedAlbum(album)) {
+      setSelected(null);
+      setImages([]);
+      return;
+    }
     setSelected(album);
-    imagesApi.albumImages(album.id).then(r => setImages(r.data)).catch(() => setImages([]));
+    imagesApi.publicAlbumImages(album.id).then(r => setImages(r.data)).catch(() => setImages([]));
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
   };
 
   return (
@@ -31,8 +47,18 @@ export default function Gallery() {
         </div>
         <nav className="gallery-nav">
           <ThemeToggle />
-          <Link to="/login" className="btn btn-outline">Iniciar sesión</Link>
-          <Link to="/register" className="btn btn-primary">Registrarse</Link>
+          {isAuthenticated ? (
+            <>
+              <Link to="/dashboard" className="btn btn-outline">Mi galería</Link>
+              <span className="nav-user">{user?.username}</span>
+              <button className="btn btn-sm" onClick={handleLogout}>Cerrar sesión</button>
+            </>
+          ) : (
+            <>
+              <Link to="/login" className="btn btn-outline">Iniciar sesión</Link>
+              <Link to="/register" className="btn btn-primary">Registrarse</Link>
+            </>
+          )}
         </nav>
       </header>
 

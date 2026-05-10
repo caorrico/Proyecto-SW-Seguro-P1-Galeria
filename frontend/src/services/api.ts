@@ -2,13 +2,18 @@ import axios from 'axios';
 import type { AuthUser, TokenResponse, Album, GalleryImage } from '../types';
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? '/api';
+const SKIP_AUTH_HEADER = 'X-Skip-Auth';
 
 const api = axios.create({ baseURL: BASE_URL });
 
 // ── JWT interceptor ───────────────────────────────────────────────────────
 api.interceptors.request.use((config) => {
+  const headers = config.headers as Record<string, string | undefined>;
+  const skipAuth = headers?.[SKIP_AUTH_HEADER] === 'true';
+  if (skipAuth) delete headers[SKIP_AUTH_HEADER];
+
   const token = localStorage.getItem('access_token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (token && !skipAuth) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
@@ -17,7 +22,7 @@ api.interceptors.response.use(
   (err) => {
     if (err.response?.status === 401) {
       localStorage.removeItem('access_token');
-      window.location.href = '/login';
+      window.location.replace('/login');
     }
     return Promise.reject(err);
   },
@@ -38,13 +43,16 @@ export const authApi = {
   me: () => api.get<AuthUser>('/auth/me'),
 
   logout: async () => {
+    const token = localStorage.getItem('access_token');
+    localStorage.removeItem('access_token');
+    if (!token) return;
     try {
-      await api.post('/auth/logout');
+      await api.post('/auth/logout', undefined, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
     } catch {
       // Local logout must still complete if the token is already invalid.
     }
-    localStorage.removeItem('access_token');
-    window.location.href = '/login';
   },
 };
 
@@ -75,7 +83,7 @@ export const albumsApi = {
 
   myAlbums: () => api.get<Album[]>('/albums/my'),
 
-  publicAlbums: () => api.get<Album[]>('/albums/public'),
+  publicAlbums: () => api.get<Album[]>('/albums/public', { headers: { [SKIP_AUTH_HEADER]: 'true' } }),
 
   pendingAlbums: () => api.get<Album[]>('/albums/pending'),
 
@@ -95,6 +103,9 @@ export const imagesApi = {
 
   albumImages: (albumId: number) =>
     api.get<GalleryImage[]>(`/albums/${albumId}/images`),
+
+  publicAlbumImages: (albumId: number) =>
+    api.get<GalleryImage[]>(`/albums/${albumId}/images`, { headers: { [SKIP_AUTH_HEADER]: 'true' } }),
 
   imageUrl: (storedFilename: string) =>
     `${BASE_URL}/images/${storedFilename}`,
