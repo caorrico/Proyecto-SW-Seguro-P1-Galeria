@@ -460,37 +460,30 @@ input::placeholder { color: var(--text-muted); }
 .steg-details code { font-family: 'JetBrains Mono', monospace; font-size: .75rem; color: var(--cyan); }
 .metric-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: .25rem .65rem;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, auto);
+  gap: .45rem .8rem;
   padding: .55rem .65rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--glass);
 }
 .metric-grid span { color: var(--text-muted); }
-.entropy-table {
-  display: flex;
-  flex-direction: column;
-  gap: .2rem;
-  padding: .55rem .65rem;
-  border: 1px solid rgba(6,182,212,.22);
-  border-radius: var(--radius-sm);
-  background: rgba(6,182,212,.06);
-  overflow-x: auto;
-}
-.entropy-row {
-  display: grid;
-  grid-template-columns: minmax(48px, 1fr) repeat(4, minmax(42px, auto));
-  gap: .45rem;
+.metric-value {
+  display: inline-flex;
   align-items: center;
-  white-space: nowrap;
+  justify-content: flex-end;
+  gap: .45rem;
+  min-width: 0;
 }
-.entropy-head {
-  color: var(--text-muted);
-  font-size: .7rem;
+.metric-state {
+  font-size: .68rem;
   font-weight: 700;
+  padding: .12rem .45rem;
+  border-radius: 99px;
   text-transform: uppercase;
 }
+.metric-state.ok { color: var(--green); background: rgba(34,197,94,.12); }
+.metric-state.warn { color: var(--yellow); background: rgba(245,158,11,.14); }
 .steg-flags { display: flex; gap: .35rem; flex-wrap: wrap; margin-top: .2rem; }
 .flag {
   font-size: .7rem; font-weight: 600; padding: .15rem .5rem;

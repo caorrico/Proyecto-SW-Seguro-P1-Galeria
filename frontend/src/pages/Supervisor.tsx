@@ -16,11 +16,20 @@ function metric(value: number | undefined, digits = 4) {
   return typeof value === 'number' ? value.toFixed(digits) : 'N/D';
 }
 
-function entropyRows(steg: StegAnalysis) {
-  if (!steg.zone_analysis) return [];
-  return (Object.keys(zoneLabels) as Array<keyof typeof zoneLabels>)
-    .map(zone => ({ zone, data: steg.zone_analysis?.[zone] }))
-    .filter((item): item is { zone: keyof typeof zoneLabels; data: NonNullable<StegAnalysis['zone_analysis']>[keyof typeof zoneLabels] } => Boolean(item.data));
+function entropyValue(steg: StegAnalysis) {
+  if (!steg.zone_analysis) return undefined;
+  const values = (Object.keys(zoneLabels) as Array<keyof typeof zoneLabels>)
+    .flatMap(zone => {
+      const data = steg.zone_analysis?.[zone];
+      return [data?.e1, data?.e2];
+    })
+    .filter((value): value is number => typeof value === 'number');
+
+  return values.length > 0 ? Math.max(...values) : undefined;
+}
+
+function statusText(isSuspicious: boolean | undefined) {
+  return isSuspicious ? 'Sospechosa' : 'Normal';
 }
 
 export default function Supervisor() {
@@ -141,31 +150,20 @@ export default function Supervisor() {
                         <div className="metric-grid">
                           <span>Dimensiones</span>
                           <code>{img.steg_result.dimensions ?? 'N/D'}</code>
-                          <span>Ratio LSB</span>
-                          <code>{metric(img.steg_result.lsb_ratio, 6)}</code>
-                          <span>Dif. histograma</span>
-                          <code>{metric(img.steg_result.histogram_pair_diff)}</code>
-                        </div>
-                        {entropyRows(img.steg_result).length > 0 && (
-                          <div className="entropy-table" aria-label="Metricas de entropia">
-                            <div className="entropy-row entropy-head">
-                              <span>Zona</span><span>E1</span><span>E2</span><span>R1</span><span>R2</span>
-                            </div>
-                            {entropyRows(img.steg_result).map(({ zone, data }) => (
-                              <div className="entropy-row" key={zone}>
-                                <span>{zoneLabels[zone]}</span>
-                                <code>{metric(data.e1)}</code>
-                                <code>{metric(data.e2)}</code>
-                                <code>{metric(data.r1)}</code>
-                                <code>{metric(data.r2)}</code>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        <div className="steg-flags">
-                          {img.steg_result.lsb_suspicious && <span className="flag">LSB</span>}
-                          {img.steg_result.histogram_suspicious && <span className="flag">Histograma</span>}
-                          {img.steg_result.entropy_suspicious && <span className="flag">Entropia</span>}
+                          <span>LSB</span>
+                          <span className="metric-value">
+                            <code>{metric(img.steg_result.lsb_ratio, 6)}</code>
+                            <span className={`metric-state ${img.steg_result.lsb_suspicious ? 'warn' : 'ok'}`}>
+                              {statusText(img.steg_result.lsb_suspicious)}
+                            </span>
+                          </span>
+                          <span>Entropia</span>
+                          <span className="metric-value">
+                            <code>{metric(entropyValue(img.steg_result))}</code>
+                            <span className={`metric-state ${img.steg_result.entropy_suspicious ? 'warn' : 'ok'}`}>
+                              {statusText(img.steg_result.entropy_suspicious)}
+                            </span>
+                          </span>
                         </div>
                       </div>
                     )}
