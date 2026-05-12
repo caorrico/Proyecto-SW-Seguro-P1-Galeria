@@ -107,16 +107,21 @@ export default function Gallery() {
                         </a>
                         <div className="image-info">
                           <span className="image-name" title={img.original_filename}>{img.original_filename}</span>
-                          <a
-                            className="btn btn-outline btn-icon"
-                            href={imagesApi.imageUrl(img.stored_filename)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="Abrir imagen"
-                            aria-label="Abrir imagen"
-                          >
-                            <ExternalLink size={15} />
-                          </a>
+                          <div className="image-actions">
+                            <span className="image-actions-spacer" />
+                            <span className="image-buttons">
+                              <a
+                                className="btn btn-outline btn-icon"
+                                href={imagesApi.imageUrl(img.stored_filename)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Abrir imagen"
+                                aria-label="Abrir imagen"
+                              >
+                                <ExternalLink size={15} />
+                              </a>
+                            </span>
+                          </div>
                         </div>
                       </div>
                     ))}

@@ -40,10 +40,18 @@ export interface StegAnalysis {
   result: 'CLEAN' | 'SUSPICIOUS' | 'ERROR';
   is_suspicious: boolean;
   dimensions?: string;
+  format?: string;
   lsb_ratio?: number;
+  histogram_pair_diff?: number;
   lsb_suspicious?: boolean;
   histogram_suspicious?: boolean;
   entropy_suspicious?: boolean;
+  zone_analysis?: Record<'start' | 'middle' | 'end', {
+    e1?: number;
+    e2?: number;
+    r1?: number;
+    r2?: number;
+  }>;
   diagnosis?: string;
 }
 

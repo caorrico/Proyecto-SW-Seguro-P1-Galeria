@@ -204,27 +204,31 @@ export default function Dashboard() {
                     </a>
                     <div className="image-info">
                       <span className="image-name" title={img.original_filename}>{img.original_filename}</span>
-                      <span className={`badge ${img.status === 'CLEAN' || img.status === 'APPROVED_MANUAL' ? 'badge-green' : 'badge-yellow'}`}>
-                        {imageStatusLabels[img.status] ?? img.status}
-                      </span>
-                      <a
-                        className="btn btn-outline btn-icon"
-                        href={previewUrls[img.id] ?? imagesApi.imageUrl(img.stored_filename)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Abrir imagen"
-                        aria-label="Abrir imagen"
-                      >
-                        <ExternalLink size={15} />
-                      </a>
-                      <button
-                        className="btn btn-red btn-icon"
-                        onClick={() => handleDelete(img.album_id, img.id)}
-                        title="Eliminar archivo"
-                        aria-label="Eliminar archivo"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      <div className="image-actions">
+                        <span className={`badge ${img.status === 'CLEAN' || img.status === 'APPROVED_MANUAL' ? 'badge-green' : 'badge-yellow'}`}>
+                          {imageStatusLabels[img.status] ?? img.status}
+                        </span>
+                        <span className="image-buttons">
+                          <a
+                            className="btn btn-outline btn-icon"
+                            href={previewUrls[img.id] ?? imagesApi.imageUrl(img.stored_filename)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Abrir imagen"
+                            aria-label="Abrir imagen"
+                          >
+                            <ExternalLink size={15} />
+                          </a>
+                          <button
+                            className="btn btn-red btn-icon"
+                            onClick={() => handleDelete(img.album_id, img.id)}
+                            title="Eliminar archivo"
+                            aria-label="Eliminar archivo"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}
