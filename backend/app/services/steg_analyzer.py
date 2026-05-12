@@ -143,11 +143,19 @@ def analyze_image(image_bytes: bytes, mime_type: str = "") -> dict:
         hist_data = _analyze_histogram(pixels)
 
         # ── Veredicto final ────────────────────────────────────────────
-        is_suspicious = (
-            entropy_suspicious
-            or lsb_data["lsb_suspicious"]
-            or hist_data["histogram_suspicious"]
-        )
+        mime_normalized = (mime_type or "").strip().lower().split(";")[0]
+        is_jpeg = mime_normalized in {"image/jpeg", "image/jpg"} or (image.format or "").upper() == "JPEG"
+        flags = [
+            entropy_suspicious,
+            lsb_data["lsb_suspicious"],
+            hist_data["histogram_suspicious"],
+        ]
+        if is_jpeg:
+            is_suspicious = entropy_suspicious and hist_data["histogram_suspicious"]
+            decision_policy = "jpeg_entropy_and_histogram"
+        else:
+            is_suspicious = sum(flags) >= 2
+            decision_policy = "two_or_more_signals"
 
         result = "SUSPICIOUS" if is_suspicious else "CLEAN"
 
@@ -161,6 +169,8 @@ def analyze_image(image_bytes: bytes, mime_type: str = "") -> dict:
             "histogram_pair_diff": hist_data["histogram_pair_diff"],
             "histogram_suspicious": hist_data["histogram_suspicious"],
             "entropy_suspicious": entropy_suspicious,
+            "suspicious_signal_count": sum(flags),
+            "decision_policy": decision_policy,
             "zone_analysis": {
                 "start": res_start,
                 "middle": res_mid,
