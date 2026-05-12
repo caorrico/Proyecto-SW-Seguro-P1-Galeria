@@ -261,14 +261,23 @@ def delete_album_image(
     if not image or image.album_id != album_id:
         raise HTTPException(status_code=404, detail="Imagen no encontrada.")
     
-    if image.user_id != current_user.id and current_user.role not in {"supervisor", "admin"}:
+    album = db.get(Album, album_id)
+    if not album:
+        raise HTTPException(status_code=404, detail="Album no encontrado.")
+
+    if album.user_id != current_user.id or image.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="No tienes permiso para borrar esta imagen.")
     
     # Determinar en qué bucket está
-    bucket = "public" if image.status in ["CLEAN", "APPROVED_MANUAL"] else "quarantine"
+    buckets = ["public"] if image.status in ["CLEAN", "APPROVED_MANUAL"] else ["quarantine"]
+    if image.status == "REJECTED":
+        buckets = ["evidence"]
+    buckets.extend(bucket for bucket in ("public", "quarantine", "evidence") if bucket not in buckets)
     
     # Borrar de MinIO
-    storage_service.delete_file(bucket, image.stored_path)
+    deleted_from_storage = any(storage_service.delete_file(bucket, image.stored_path) for bucket in buckets)
+    if not deleted_from_storage:
+        logger.warning("Image %s could not be removed from storage; deleting DB record anyway.", image.id)
     
     # Borrar de DB
     db.delete(image)
