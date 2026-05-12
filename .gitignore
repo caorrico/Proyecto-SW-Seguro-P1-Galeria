@@ -31,6 +31,7 @@ frontend/.vite/
 Thumbs.db
 *.log
 *.tmp
+tools/
 .env
 Proy_IP_DesarrolloSeguro_202650.md
 Proy_IP_DesarrolloSeguro_202650.pdf
