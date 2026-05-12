@@ -1,4 +1,4 @@
-import { Eye, Globe2, ImageIcon, LayoutDashboard, Lock, Search, Trash2, Upload, User } from 'lucide-react';
+import { ExternalLink, Eye, Globe2, ImageIcon, LayoutDashboard, Lock, Search, Trash2, Upload, User } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
@@ -192,13 +192,31 @@ export default function Dashboard() {
               <div className="image-grid">
                 {images.map(img => (
                   <div key={img.id} className="image-card">
-                    <img src={previewUrls[img.id] ?? imagesApi.imageUrl(img.stored_filename)} alt={img.original_filename}
-                      loading="lazy" />
+                    <a
+                      className="image-preview-link"
+                      href={previewUrls[img.id] ?? imagesApi.imageUrl(img.stored_filename)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`Abrir ${img.original_filename}`}
+                    >
+                      <img src={previewUrls[img.id] ?? imagesApi.imageUrl(img.stored_filename)} alt={img.original_filename}
+                        loading="lazy" />
+                    </a>
                     <div className="image-info">
+                      <span className="image-name" title={img.original_filename}>{img.original_filename}</span>
                       <span className={`badge ${img.status === 'CLEAN' || img.status === 'APPROVED_MANUAL' ? 'badge-green' : 'badge-yellow'}`}>
                         {imageStatusLabels[img.status] ?? img.status}
                       </span>
-                      <span className="image-name">{img.original_filename}</span>
+                      <a
+                        className="btn btn-outline btn-icon"
+                        href={previewUrls[img.id] ?? imagesApi.imageUrl(img.stored_filename)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Abrir imagen"
+                        aria-label="Abrir imagen"
+                      >
+                        <ExternalLink size={15} />
+                      </a>
                       <button
                         className="btn btn-red btn-icon"
                         onClick={() => handleDelete(img.album_id, img.id)}

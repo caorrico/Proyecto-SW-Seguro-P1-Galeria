@@ -1,4 +1,4 @@
-import { Folder, ImageIcon, ShieldCheck } from 'lucide-react';
+import { ExternalLink, Folder, ImageIcon, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
@@ -92,12 +92,32 @@ export default function Gallery() {
                   <div className="image-grid">
                     {images.map(img => (
                       <div key={img.id} className="image-card">
-                        <img
-                          src={imagesApi.imageUrl(img.stored_filename)}
-                          alt={img.original_filename}
-                          loading="lazy"
-                        />
-                        <p className="image-caption">{img.original_filename}</p>
+                        <a
+                          className="image-preview-link"
+                          href={imagesApi.imageUrl(img.stored_filename)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={`Abrir ${img.original_filename}`}
+                        >
+                          <img
+                            src={imagesApi.imageUrl(img.stored_filename)}
+                            alt={img.original_filename}
+                            loading="lazy"
+                          />
+                        </a>
+                        <div className="image-info">
+                          <span className="image-name" title={img.original_filename}>{img.original_filename}</span>
+                          <a
+                            className="btn btn-outline btn-icon"
+                            href={imagesApi.imageUrl(img.stored_filename)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Abrir imagen"
+                            aria-label="Abrir imagen"
+                          >
+                            <ExternalLink size={15} />
+                          </a>
+                        </div>
                       </div>
                     ))}
                     {images.length === 0 && <p className="empty">Este álbum no tiene imágenes publicadas.</p>}

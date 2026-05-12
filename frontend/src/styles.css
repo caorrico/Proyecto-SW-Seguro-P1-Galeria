@@ -294,16 +294,32 @@ input::placeholder { color: var(--text-muted); }
   transition: transform .2s, box-shadow .2s;
 }
 .image-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+.image-preview-link {
+  display: block;
+  cursor: zoom-in;
+}
+.image-preview-link:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+}
 .image-card img {
   width: 100%; aspect-ratio: 1/1; object-fit: cover;
   background: var(--bg-600);
 }
 .image-info {
-  padding: .4rem .5rem; display: flex; align-items: center;
-  gap: .4rem; flex-wrap: wrap;
+  padding: .55rem .6rem; display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: .45rem; align-items: center;
 }
-.image-name { font-size: .72rem; color: var(--text-muted); overflow: hidden;
-  text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.image-name {
+  grid-column: 1 / -1;
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .image-caption { font-size: .72rem; color: var(--text-muted); padding: .3rem .5rem;
   text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
 
